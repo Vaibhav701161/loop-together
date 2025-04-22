@@ -62,7 +62,11 @@ const ProofDialog: React.FC<ProofDialogProps & { open?: boolean; onOpenChange?: 
       proofData = imageProof;
     }
     
+    // Fix the addPactCompletion call to include all required parameters
     addPactCompletion(pactId, activeUser?.id || "user_a", {
+      pactId,
+      userId: activeUser?.id || "user_a",
+      status: "completed",
       proofType,
       proofUrl: proofData,
       note: textProof

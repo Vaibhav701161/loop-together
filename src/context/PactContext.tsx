@@ -10,7 +10,7 @@ interface PactContextType {
   addPact: (pact: Omit<Pact, "id">) => Promise<void>;
   updatePact: (pact: Pact) => Promise<void>;
   deletePact: (pactId: string) => Promise<void>;
-  addPactCompletion: (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => Promise<void>;
+  addPactCompletion: (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "date" | "completedAt">) => Promise<void>;
   getTodaysPacts: () => Pact[];
   getUserPendingPacts: (userId: "user_a" | "user_b") => Pact[];
   getUserCompletedPacts: (userId: "user_a" | "user_b") => Pact[];
@@ -22,10 +22,11 @@ interface PactContextType {
     totalCompleted: number;
   };
   getPact: (pactId: string) => Pact | undefined;
-  getPactStreak: (pactId: string, userId: "user_a" | "user_b") => { current: number; longest: number; total: number };
+  getPactStreak: (pactId: string, userId?: "user_a" | "user_b") => { current: number; longest: number; total: number };
   logs: PactLog[];
   isPactLost: (pactId: string, userId: "user_a" | "user_b") => boolean;
   addPactLog: (log: Omit<PactLog, "id">) => Promise<void>;
+  deleteLog: (logId: string) => Promise<void>;
 }
 
 const PactContext = createContext<PactContextType | undefined>(undefined);
@@ -178,7 +179,7 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
           start_date: newPact.startDate,
           color: newPact.color || null,
           is_verified: newPact.isVerified || false,
-          created_by: pact.createdBy || "user_a",
+          created_by: "user_a",
           created_at: newPact.createdAt
         })
         .select()
@@ -268,7 +269,7 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addPactCompletion = async (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => {
+  const addPactCompletion = async (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "date" | "completedAt">) => {
     try {
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toISOString();
@@ -365,6 +366,31 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteLog = async (logId: string) => {
+    try {
+      const { error } = await supabase
+        .from('pact_logs')
+        .delete()
+        .eq('id', logId);
+        
+      if (error) throw error;
+      
+      setCompletions(prevLogs => prevLogs.filter(log => log.id !== logId));
+      
+      toast({
+        title: "Log deleted",
+        description: "The log entry has been deleted successfully."
+      });
+    } catch (error) {
+      console.error('Error deleting log:', error);
+      toast({
+        title: "Error deleting log",
+        description: "There was an error deleting the log. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getTodaysPacts = () => {
     const today = new Date().toLocaleDateString();
     return pacts.filter(pact => {
@@ -430,9 +456,9 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return pacts.find(p => p.id === pactId);
   };
 
-  const getPactStreak = (pactId: string, userId: "user_a" | "user_b") => {
+  const getPactStreak = (pactId: string, userId?: "user_a" | "user_b") => {
     const pactCompletions = completions
-      .filter(c => c.pactId === pactId && c.userId === userId && c.status === "completed")
+      .filter(c => c.pactId === pactId && (userId ? c.userId === userId : true) && c.status === "completed")
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
     let current = 0;
@@ -545,7 +571,8 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getPactStreak,
       logs: completions,
       isPactLost,
-      addPactLog
+      addPactLog,
+      deleteLog
     }}>
       {children}
     </PactContext.Provider>

@@ -2,8 +2,17 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Get Supabase URL and key from environment variables
+// Fallback to empty strings if not available, but show a warning
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+// Check if credentials are available and warn if not
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    'Supabase credentials missing. Make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your environment variables.'
+  );
+}
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
 

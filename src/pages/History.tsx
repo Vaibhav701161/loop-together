@@ -1,226 +1,173 @@
-import React, { useState } from "react";
+import React from "react";
+import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
-import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { format, parseISO, subDays } from "date-fns";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { format, parseISO } from "date-fns";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { CheckCircle2, XCircle, Clock, Trash2 } from "lucide-react";
+
+interface LogData {
+  name: string;
+  value: number;
+  icon: React.ReactNode;
+  color: string;
+}
 
 const History: React.FC = () => {
   const { activeUser, users } = useAuth();
-  const { 
-    pacts, 
-    logs, 
-    getPactStreak, 
-    getPactStatus, 
-    getPact,
-    calculateSummary,
-  } = usePacts();
-  
-  const [selectedUser, setSelectedUser] = useState<"user_a" | "user_b">(activeUser?.id || "user_a");
-  
-  const userPacts = pacts.filter(pact => 
-    pact.assignedTo === selectedUser || pact.assignedTo === "both"
-  );
-  
-  const userSummary = calculateSummary(selectedUser);
-  
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = subDays(new Date(), 6 - i);
-    return format(date, "yyyy-MM-dd");
-  });
-  
-  const dailyCompletionData = last7Days.map(date => {
-    const dayLogs = logs.filter(log => 
-      log.date === date && log.userId === selectedUser
-    );
-    
-    const completed = dayLogs.filter(log => log.status === "completed").length;
-    const total = userPacts.length;
-    
-    return {
-      date,
-      percentage: total > 0 ? (completed / total) * 100 : 0
-    };
-  });
-
-  const pactStreaks = userPacts.map(pact => ({
-    pact,
-    streak: getPactStreak(pact.id)
-  })).sort((a, b) => b.streak.current - a.streak.current);
-
-  const recentLogs = [...logs]
-    .filter(log => log.userId === selectedUser)
-    .sort((a, b) => new Date(b.completedAt || "").getTime() - new Date(a.completedAt || "").getTime())
-    .slice(0, 10);
-
+  const { logs, getPact, deleteLog } = usePacts();
   const { toast } = useToast();
+  
+  const currentUser = activeUser!;
+  const otherUser = users.find(user => user.id !== currentUser.id)!;
 
-  const handleDelete = (logId: string) => {
-    deleteLog(logId);
-    toast({
-      title: "Log Deleted",
-      description: "The activity log has been removed."
-    });
+  const completedLogs = logs.filter(log => log.status === "completed" && (log.userId === currentUser.id || log.userId === otherUser.id));
+  const failedLogs = logs.filter(log => log.status === "failed" && (log.userId === currentUser.id || log.userId === otherUser.id));
+  const pendingLogs = logs.filter(log => log.status === "pending" && (log.userId === currentUser.id || log.userId === otherUser.id));
+
+  const logData: LogData[] = [
+    { name: "Completed", value: completedLogs.length, icon: <CheckCircle2 className="h-4 w-4 text-green-500" />, color: "#22c55e" },
+    { name: "Failed", value: failedLogs.length, icon: <XCircle className="h-4 w-4 text-red-500" />, color: "#ef4444" },
+    { name: "Pending", value: pendingLogs.length, icon: <Clock className="h-4 w-4 text-gray-500" />, color: "#9ca3af" },
+  ];
+
+  const COLORS = logData.map(item => item.color);
+
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload as LogData;
+      return (
+        <div className="bg-white border rounded p-2 shadow-md">
+          <p className="font-semibold">{data.name}</p>
+          <p>Count: {data.value}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const handleDeleteLog = async (logId: string) => {
+    try {
+      await deleteLog(logId);
+      
+      toast({
+        title: "Log deleted",
+        description: "The log entry has been successfully removed.",
+      });
+    } catch (error) {
+      console.error("Error deleting log:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the log entry. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <Layout>
-      <div className="container mx-auto max-w-4xl">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold gradient-heading">Analytics & History</h1>
-          <Select
-            value={selectedUser}
-            onValueChange={value => setSelectedUser(value as "user_a" | "user_b")}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select person" />
-            </SelectTrigger>
-            <SelectContent>
-              {users.map(user => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <Tabs defaultValue="overview" className="mb-8">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="streaks">Streaks</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="overview" className="mt-4">
-            <Card className="mb-6">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Weekly Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4 mb-6 text-center">
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <p className="text-3xl font-bold text-primary">{userSummary.currentStreak}</p>
-                    <p className="text-sm text-muted-foreground">Current streak</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <p className="text-3xl font-bold text-primary">{userSummary.totalCompleted}</p>
-                    <p className="text-sm text-muted-foreground">Total completed</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <p className="text-3xl font-bold text-primary">{userPacts.length}</p>
-                    <p className="text-sm text-muted-foreground">Active pacts</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Last 7 Days Completion Rate</h3>
-                  <div className="space-y-2">
-                    {dailyCompletionData.map((day, index) => (
-                      <div key={day.date} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span>{format(parseISO(day.date), "EEE, MMM d")}</span>
-                          <span>{Math.round(day.percentage)}%</span>
-                        </div>
-                        <Progress value={day.percentage} className="h-2" />
-                      </div>
+      <div className="container mx-auto max-w-4xl px-4 py-6">
+        <h1 className="text-2xl font-bold gradient-heading mb-8">History</h1>
+
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Pact Completion Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {logData.every(item => item.value === 0) ? (
+              <div className="text-center py-10">
+                <p className="text-muted-foreground">No pact history available.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={logData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={renderCustomizedLabel}
+                    outerRadius={120}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {logData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
-                  </div>
-                </div>
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+          {logs.length === 0 ? (
+            <Card className="bg-muted/50">
+              <CardContent className="py-6 text-center">
+                <p className="text-muted-foreground">No recent activity found.</p>
               </CardContent>
             </Card>
-          </TabsContent>
-          
-          <TabsContent value="streaks" className="mt-4">
+          ) : (
             <div className="space-y-4">
-              {pactStreaks.length === 0 ? (
-                <Card>
-                  <CardContent className="py-8 text-center">
-                    <p className="text-muted-foreground">No pacts found for this user.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                pactStreaks.map(({ pact, streak }) => (
-                  <Card key={pact.id} className="overflow-hidden">
-                    <div className={`h-1 ${pact.color || "bg-primary"}`} />
-                    <CardContent className="pt-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-bold">{pact.title}</h3>
-                        <Badge>
-                          {streak.current} day{streak.current !== 1 ? "s" : ""} streak
-                        </Badge>
+              {logs.sort((a, b) => parseISO(b.completedAt).getTime() - parseISO(a.completedAt).getTime()).map(log => {
+                const pact = getPact(log.pactId);
+                if (!pact) return null;
+
+                const statusIcon =
+                  log.status === "completed" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  ) : log.status === "failed" ? (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  ) : (
+                    <Clock className="h-4 w-4 text-gray-500" />
+                  );
+
+                return (
+                  <Card key={log.id}>
+                    <CardHeader className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {statusIcon}
+                        <CardTitle className="text-sm font-medium">{pact.title}</CardTitle>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-sm text-center">
-                        <div className="bg-muted/40 rounded p-2">
-                          <p className="font-bold">{streak.current}</p>
-                          <p className="text-xs text-muted-foreground">Current</p>
-                        </div>
-                        <div className="bg-muted/40 rounded p-2">
-                          <p className="font-bold">{streak.longest}</p>
-                          <p className="text-xs text-muted-foreground">Longest</p>
-                        </div>
-                        <div className="bg-muted/40 rounded p-2">
-                          <p className="font-bold">{streak.total}</p>
-                          <p className="text-xs text-muted-foreground">Total</p>
-                        </div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(parseISO(log.completedAt), "MMM d, yyyy h:mm a")}
                       </div>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-between p-4">
+                      <div className="text-sm">
+                        Status: {log.status} • User: {log.userId}
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-red-500 hover:bg-red-500/10" onClick={() => handleDeleteLog(log.id)}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
                     </CardContent>
                   </Card>
-                ))
-              )}
+                );
+              })}
             </div>
-          </TabsContent>
-          
-          <TabsContent value="activity" className="mt-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recentLogs.length === 0 ? (
-                  <p className="text-center py-6 text-muted-foreground">
-                    No recent activity found.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {recentLogs.map(log => {
-                      const pact = getPact(log.pactId);
-                      if (!pact) return null;
-                      
-                      return (
-                        <div key={log.id} className="flex items-start gap-2 pb-3 border-b">
-                          <div className={`w-2 h-2 mt-2 rounded-full ${
-                            log.status === "completed" ? "bg-green-500" : 
-                            log.status === "failed" ? "bg-red-500" : "bg-yellow-500"
-                          }`} />
-                          <div className="flex-1">
-                            <div className="flex justify-between">
-                              <p className="font-medium">{pact.title}</p>
-                              <Badge variant={
-                                log.status === "completed" ? "default" :
-                                log.status === "failed" ? "destructive" : "outline"
-                              }>
-                                {log.status}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {log.completedAt && format(new Date(log.completedAt), "MMM d, yyyy 'at' h:mm a")}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
     </Layout>
   );
