@@ -27,19 +27,30 @@ const Dashboard: React.FC = () => {
 
   const currentUser = activeUser!;
   const otherUser = users.find(u => u.id !== currentUser.id)!;
-  
-  const userSummary = calculateSummary(currentUser.id);
-  const otherUserSummary = calculateSummary(otherUser.id);
-  
-  const userPendingPacts = getUserPendingPacts(currentUser.id);
-  const userCompletedPacts = getUserCompletedPacts(currentUser.id);
-  const userPendingCount = userPendingPacts.length;
-  const userCompletedCount = userCompletedPacts.length;
-  const userTotalPacts = userPendingCount + userCompletedCount;
-  const userProgress = userTotalPacts > 0 
-    ? Math.round((userCompletedCount / userTotalPacts) * 100) 
-    : 0;
-    
+
+  // Shared pacts stats, logic for both users
+  const getUserStats = (userId: string) => {
+    const summary = calculateSummary(userId);
+    const pendingPacts = getUserPendingPacts(userId);
+    const completedPacts = getUserCompletedPacts(userId);
+    const pendingCount = pendingPacts.length;
+    const completedCount = completedPacts.length;
+    const totalPacts = pendingCount + completedCount;
+    const progress = totalPacts > 0 
+      ? Math.round((completedCount / totalPacts) * 100) 
+      : 0;
+    return {
+      summary,
+      pendingCount,
+      completedCount,
+      totalPacts,
+      progress,
+    }
+  }
+
+  const userStats = getUserStats(currentUser.id);
+  const otherUserStats = getUserStats(otherUser.id);
+
   const handleProofSubmit = (pact: Pact) => {
     setSelectedPact(pact);
     setProofDialogOpen(true);
@@ -55,8 +66,49 @@ const Dashboard: React.FC = () => {
         return <Badge variant="outline">Pending</Badge>;
     }
   };
-  
+
   const today = format(new Date(), "EEEE, MMMM do");
+
+  // Card body shared between currentUser and otherUser
+  const renderUserStatsCard = (
+    user: typeof currentUser,
+    userStats: ReturnType<typeof getUserStats>,
+    colorClass: string,
+    nameClass: string,
+  ) => (
+    <Card className={`border-l-4 ${colorClass} card-hover`}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">
+          <span className={nameClass}>{user.name}'s</span> Progress
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pb-2">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-muted-foreground">
+            Today's pacts: {userStats.completedCount}/{userStats.totalPacts}
+          </span>
+          <Badge variant={userStats.progress === 100 ? "default" : "outline"}>
+            {userStats.progress}%
+          </Badge>
+        </div>
+        <Progress value={userStats.progress} className="h-2 mb-4" />
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-muted/50 rounded-md p-2">
+            <p className={`text-2xl font-bold ${nameClass}`}>{userStats.summary.currentStreak}</p>
+            <p className="text-xs text-muted-foreground">Current streak</p>
+          </div>
+          <div className="bg-muted/50 rounded-md p-2">
+            <p className={`text-2xl font-bold ${nameClass}`}>{userStats.summary.totalPacts}</p>
+            <p className="text-xs text-muted-foreground">Active pacts</p>
+          </div>
+          <div className="bg-muted/50 rounded-md p-2">
+            <p className={`text-2xl font-bold ${nameClass}`}>{userStats.summary.totalCompleted}</p>
+            <p className="text-xs text-muted-foreground">Total completed</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <Layout>
@@ -66,62 +118,9 @@ const Dashboard: React.FC = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           {/* User stats card */}
-          <Card className="border-l-4 border-l-couple-purple card-hover">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">
-                <span className="text-couple-purple">{currentUser.name}'s</span> Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-2">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-muted-foreground">Today's pacts: {userCompletedCount}/{userTotalPacts}</span>
-                <Badge variant={userProgress === 100 ? "default" : "outline"}>
-                  {userProgress}%
-                </Badge>
-              </div>
-              <Progress value={userProgress} className="h-2 mb-4" />
-              
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-muted/50 rounded-md p-2">
-                  <p className="text-2xl font-bold text-couple-purple">{userSummary.currentStreak}</p>
-                  <p className="text-xs text-muted-foreground">Current streak</p>
-                </div>
-                <div className="bg-muted/50 rounded-md p-2">
-                  <p className="text-2xl font-bold text-couple-purple">{userSummary.totalPacts}</p>
-                  <p className="text-xs text-muted-foreground">Active pacts</p>
-                </div>
-                <div className="bg-muted/50 rounded-md p-2">
-                  <p className="text-2xl font-bold text-couple-purple">{userSummary.totalCompleted}</p>
-                  <p className="text-xs text-muted-foreground">Total completed</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
+          {renderUserStatsCard(currentUser, userStats, "border-l-couple-purple", "text-couple-purple")}
           {/* Partner stats card */}
-          <Card className="border-l-4 border-l-couple-orange card-hover">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">
-                <span className="text-couple-orange">{otherUser.name}'s</span> Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-2">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-muted/50 rounded-md p-2">
-                  <p className="text-2xl font-bold text-couple-orange">{otherUserSummary.currentStreak}</p>
-                  <p className="text-xs text-muted-foreground">Current streak</p>
-                </div>
-                <div className="bg-muted/50 rounded-md p-2">
-                  <p className="text-2xl font-bold text-couple-orange">{otherUserSummary.totalPacts}</p>
-                  <p className="text-xs text-muted-foreground">Active pacts</p>
-                </div>
-                <div className="bg-muted/50 rounded-md p-2">
-                  <p className="text-2xl font-bold text-couple-orange">{otherUserSummary.totalCompleted}</p>
-                  <p className="text-xs text-muted-foreground">Total completed</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {renderUserStatsCard(otherUser, otherUserStats, "border-l-couple-orange", "text-couple-orange")}
         </div>
         
         <div className="mb-8">
@@ -132,7 +131,7 @@ const Dashboard: React.FC = () => {
             </Button>
           </div>
           
-          {userPendingPacts.length === 0 ? (
+          {userStats.pendingCount === 0 ? (
             <Card className="bg-muted/30">
               <CardContent className="flex flex-col items-center justify-center py-8">
                 <p className="text-lg mb-2">🎉 All done for today!</p>
@@ -141,7 +140,7 @@ const Dashboard: React.FC = () => {
             </Card>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {userPendingPacts.map((pact) => (
+              {getUserPendingPacts(currentUser.id).map((pact) => (
                 <Card key={pact.id} className="card-hover border-l-4 border-l-primary">
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
@@ -178,7 +177,7 @@ const Dashboard: React.FC = () => {
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-2">Completed Today</h2>
           
-          {userCompletedPacts.length === 0 ? (
+          {userStats.completedCount === 0 ? (
             <Card className="bg-muted/30">
               <CardContent className="py-6">
                 <p className="text-center text-muted-foreground">
@@ -188,7 +187,7 @@ const Dashboard: React.FC = () => {
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {userCompletedPacts.map((pact) => (
+              {getUserCompletedPacts(currentUser.id).map((pact) => (
                 <Card key={pact.id} className="bg-muted/30">
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
@@ -215,3 +214,4 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+
