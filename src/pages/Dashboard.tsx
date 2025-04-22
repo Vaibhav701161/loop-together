@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
@@ -223,9 +224,13 @@ const Dashboard: React.FC = () => {
         
         {selectedPact && (
           <ProofDialog
-            pact={selectedPact}
+            pactId={selectedPact.id}
+            date={format(new Date(), "yyyy-MM-dd")}
+            proofType={selectedPact.proofType}
+            onComplete={() => {}}
             open={proofDialogOpen}
             onOpenChange={handleProofDialogOpenChange}
+            pact={selectedPact}
           />
         )}
       </SuccessAnimation>

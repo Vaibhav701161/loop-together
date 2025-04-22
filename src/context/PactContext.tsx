@@ -1,15 +1,16 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Pact, PactLog, User, CompletionStatus } from "@/types";
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/lib/supabase';
+import { useToast } from "@/hooks/use-toast";
 
 interface PactContextType {
   pacts: Pact[];
   completions: PactLog[];
-  addPact: (pact: Omit<Pact, "id">) => void;
-  updatePact: (pact: Pact) => void;
-  deletePact: (pactId: string) => void;
-  addPactCompletion: (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => void;
+  addPact: (pact: Omit<Pact, "id">) => Promise<void>;
+  updatePact: (pact: Pact) => Promise<void>;
+  deletePact: (pactId: string) => Promise<void>;
+  addPactCompletion: (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => Promise<void>;
   getTodaysPacts: () => Pact[];
   getUserPendingPacts: (userId: "user_a" | "user_b") => Pact[];
   getUserCompletedPacts: (userId: "user_a" | "user_b") => Pact[];
@@ -24,7 +25,7 @@ interface PactContextType {
   getPactStreak: (pactId: string, userId: "user_a" | "user_b") => { current: number; longest: number; total: number };
   logs: PactLog[];
   isPactLost: (pactId: string, userId: "user_a" | "user_b") => boolean;
-  addPactLog: (log: Omit<PactLog, "id">) => void;
+  addPactLog: (log: Omit<PactLog, "id">) => Promise<void>;
 }
 
 const PactContext = createContext<PactContextType | undefined>(undefined);
@@ -38,67 +39,330 @@ export const usePacts = () => {
 };
 
 export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [pacts, setPacts] = useState<Pact[]>(() => {
-    const storedPacts = localStorage.getItem("2getherLoop_pacts");
-    return storedPacts ? JSON.parse(storedPacts) : [];
-  });
-  const [completions, setCompletions] = useState<PactLog[]>(() => {
-    const storedCompletions = localStorage.getItem("2getherLoop_completions");
-    return storedCompletions ? JSON.parse(storedCompletions) : [];
-  });
+  const [pacts, setPacts] = useState<Pact[]>([]);
+  const [completions, setCompletions] = useState<PactLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
-  }, [pacts]);
+    const fetchPacts = async () => {
+      setIsLoading(true);
+      try {
+        const { data: pactsData, error: pactsError } = await supabase
+          .from('pacts')
+          .select('*');
+        
+        if (pactsError) {
+          throw pactsError;
+        }
+
+        const { data: logsData, error: logsError } = await supabase
+          .from('pact_logs')
+          .select('*');
+        
+        if (logsError) {
+          throw logsError;
+        }
+
+        const transformedPacts: Pact[] = pactsData.map(p => ({
+          id: p.id,
+          title: p.title,
+          description: p.description || undefined,
+          frequency: p.frequency,
+          assignedTo: p.assigned_to,
+          proofType: p.proof_type,
+          deadline: p.deadline,
+          maxFailCount: p.max_fail_count,
+          punishment: p.punishment,
+          reward: p.reward,
+          createdAt: p.created_at,
+          startDate: p.start_date,
+          color: p.color || undefined,
+          isVerified: p.is_verified
+        }));
+
+        const transformedLogs: PactLog[] = logsData.map(log => ({
+          id: log.id,
+          pactId: log.pact_id,
+          userId: log.user_id as User["id"],
+          date: log.date,
+          status: log.status,
+          completedAt: log.completed_at,
+          note: log.note || undefined,
+          proofType: log.proof_type || undefined,
+          proofUrl: log.proof_url || undefined,
+          verifiedBy: log.verified_by || undefined,
+          verifiedAt: log.verified_at || undefined,
+          comment: log.comment || undefined
+        }));
+
+        setPacts(transformedPacts);
+        setCompletions(transformedLogs);
+      } catch (error) {
+        console.error('Error fetching data from Supabase:', error);
+        
+        const storedPacts = localStorage.getItem("2getherLoop_pacts");
+        const storedCompletions = localStorage.getItem("2getherLoop_completions");
+        
+        setPacts(storedPacts ? JSON.parse(storedPacts) : []);
+        setCompletions(storedCompletions ? JSON.parse(storedCompletions) : []);
+        
+        toast({
+          title: "Error fetching data",
+          description: "Falling back to local storage.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPacts();
+    
+    const pactsSubscription = supabase
+      .channel('pacts-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pacts' }, payload => {
+        console.log('Pacts change received!', payload);
+        fetchPacts();
+      })
+      .subscribe();
+      
+    const logsSubscription = supabase
+      .channel('logs-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pact_logs' }, payload => {
+        console.log('Logs change received!', payload);
+        fetchPacts();
+      })
+      .subscribe();
+      
+    return () => {
+      pactsSubscription.unsubscribe();
+      logsSubscription.unsubscribe();
+    };
+  }, [toast]);
+  
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
+    }
+  }, [pacts, isLoading]);
 
   useEffect(() => {
-    localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
-  }, [completions]);
+    if (!isLoading) {
+      localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
+    }
+  }, [completions, isLoading]);
 
-  const addPact = (pact: Omit<Pact, "id">) => {
-    const newPact: Pact = { 
-      id: uuidv4(), 
-      ...pact,
-      createdAt: pact.createdAt || new Date().toISOString(),
-      startDate: pact.startDate || new Date().toISOString().split('T')[0]
-    };
-    setPacts(prevPacts => [...prevPacts, newPact]);
+  const addPact = async (pact: Omit<Pact, "id">) => {
+    try {
+      const newPact = { 
+        id: uuidv4(), 
+        ...pact,
+        createdAt: pact.createdAt || new Date().toISOString(),
+        startDate: pact.startDate || new Date().toISOString().split('T')[0]
+      };
+      
+      const { data, error } = await supabase
+        .from('pacts')
+        .insert({
+          id: newPact.id,
+          title: newPact.title,
+          description: newPact.description || null,
+          frequency: newPact.frequency,
+          assigned_to: newPact.assignedTo,
+          proof_type: newPact.proofType,
+          deadline: newPact.deadline,
+          max_fail_count: newPact.maxFailCount,
+          punishment: newPact.punishment,
+          reward: newPact.reward,
+          start_date: newPact.startDate,
+          color: newPact.color || null,
+          is_verified: newPact.isVerified || false,
+          created_by: pact.createdBy || "user_a",
+          created_at: newPact.createdAt
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      setPacts(prevPacts => [...prevPacts, newPact]);
+      
+      toast({
+        title: "Pact created",
+        description: "Your new pact has been created successfully."
+      });
+    } catch (error) {
+      console.error('Error adding pact:', error);
+      toast({
+        title: "Error creating pact",
+        description: "There was an error creating your pact. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const updatePact = (pact: Pact) => {
-    setPacts(prevPacts =>
-      prevPacts.map(p => (p.id === pact.id ? pact : p))
-    );
+  const updatePact = async (pact: Pact) => {
+    try {
+      const { error } = await supabase
+        .from('pacts')
+        .update({
+          title: pact.title,
+          description: pact.description || null,
+          frequency: pact.frequency,
+          assigned_to: pact.assignedTo,
+          proof_type: pact.proofType,
+          deadline: pact.deadline,
+          max_fail_count: pact.maxFailCount,
+          punishment: pact.punishment,
+          reward: pact.reward,
+          start_date: pact.startDate,
+          color: pact.color || null,
+          is_verified: pact.isVerified || false
+        })
+        .eq('id', pact.id);
+        
+      if (error) throw error;
+      
+      setPacts(prevPacts =>
+        prevPacts.map(p => (p.id === pact.id ? pact : p))
+      );
+      
+      toast({
+        title: "Pact updated",
+        description: "Your pact has been updated successfully."
+      });
+    } catch (error) {
+      console.error('Error updating pact:', error);
+      toast({
+        title: "Error updating pact",
+        description: "There was an error updating your pact. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const deletePact = (pactId: string) => {
-    setPacts(prevPacts => prevPacts.filter(pact => pact.id !== pactId));
-    setCompletions(prevCompletions => prevCompletions.filter(completion => completion.pactId !== pactId));
+  const deletePact = async (pactId: string) => {
+    try {
+      const { error } = await supabase
+        .from('pacts')
+        .delete()
+        .eq('id', pactId);
+        
+      if (error) throw error;
+      
+      setPacts(prevPacts => prevPacts.filter(pact => pact.id !== pactId));
+      setCompletions(prevCompletions => prevCompletions.filter(completion => completion.pactId !== pactId));
+      
+      toast({
+        title: "Pact deleted",
+        description: "Your pact has been deleted successfully."
+      });
+    } catch (error) {
+      console.error('Error deleting pact:', error);
+      toast({
+        title: "Error deleting pact",
+        description: "There was an error deleting your pact. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const addPactCompletion = (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => {
-    const today = new Date().toISOString().split('T')[0];
-    const newCompletion: PactLog = {
-      id: `compl_${Date.now()}`,
-      pactId,
-      userId,
-      date: today,
-      completedAt: new Date().toISOString(),
-      status: "completed",
-      ...(data.note ? { note: data.note } : {}),
-      ...(data.proofType ? { proofType: data.proofType } : {}),
-      ...(data.proofUrl ? { proofUrl: data.proofUrl } : {})
-    };
-
-    setCompletions(prevCompletions => [...prevCompletions, newCompletion]);
+  const addPactCompletion = async (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date().toISOString();
+      
+      const newCompletion: PactLog = {
+        id: `compl_${Date.now()}`,
+        pactId,
+        userId,
+        date: today,
+        completedAt: now,
+        status: "completed",
+        ...(data.note ? { note: data.note } : {}),
+        ...(data.proofType ? { proofType: data.proofType } : {}),
+        ...(data.proofUrl ? { proofUrl: data.proofUrl } : {})
+      };
+      
+      const { error } = await supabase
+        .from('pact_logs')
+        .insert({
+          id: newCompletion.id,
+          pact_id: newCompletion.pactId,
+          user_id: newCompletion.userId,
+          date: newCompletion.date,
+          status: newCompletion.status,
+          completed_at: newCompletion.completedAt,
+          note: newCompletion.note || null,
+          proof_type: newCompletion.proofType || null,
+          proof_url: newCompletion.proofUrl || null,
+          comment: data.comment || null
+        });
+        
+      if (error) throw error;
+      
+      setCompletions(prevCompletions => [...prevCompletions, newCompletion]);
+      
+      toast({
+        title: "Task completed",
+        description: "Your task has been marked as completed."
+      });
+    } catch (error) {
+      console.error('Error adding completion:', error);
+      toast({
+        title: "Error completing task",
+        description: "There was an error marking your task as completed. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const addPactLog = (log: Omit<PactLog, "id">) => {
-    const newLog: PactLog = {
-      id: `log_${Date.now()}`,
-      ...log
-    };
-    setCompletions(prev => [...prev, newLog]);
+  const addPactLog = async (log: Omit<PactLog, "id">) => {
+    try {
+      const newLog: PactLog = {
+        id: `log_${Date.now()}`,
+        ...log
+      };
+      
+      const { error } = await supabase
+        .from('pact_logs')
+        .insert({
+          id: newLog.id,
+          pact_id: newLog.pactId,
+          user_id: newLog.userId,
+          date: newLog.date,
+          status: newLog.status,
+          completed_at: newLog.completedAt,
+          note: newLog.note || null,
+          proof_type: newLog.proofType || null,
+          proof_url: newLog.proofUrl || null,
+          comment: newLog.comment || null
+        });
+        
+      if (error) throw error;
+      
+      setCompletions(prev => [...prev, newLog]);
+      
+      if (newLog.status === "completed") {
+        toast({
+          title: "Task completed",
+          description: "Your task has been marked as completed."
+        });
+      } else if (newLog.status === "failed") {
+        toast({
+          title: "Task failed",
+          description: "Your task has been marked as failed."
+        });
+      }
+    } catch (error) {
+      console.error('Error adding log:', error);
+      toast({
+        title: "Error updating task",
+        description: "There was an error updating your task status. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getTodaysPacts = () => {
@@ -140,11 +404,9 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
     
     if (pactCompletions.length > 0) {
-      // Return the status of the most recent completion
       return pactCompletions[pactCompletions.length - 1].status;
     }
     
-    // If no completions found, check if pact is overdue
     const pact = pacts.find(p => p.id === pactId);
     if (pact) {
       const now = new Date();
@@ -199,7 +461,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     longest = Math.max(longest, tempStreak);
     
-    // Calculate current streak
     if (pactCompletions.length > 0) {
       const lastCompletionDate = new Date(pactCompletions[0].date);
       const today = new Date();
