@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { exportAppData, importAppData } from "@/utils/dataExport";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { 
   Download, Upload, Palette, Moon, Sun, CloudCog, 
-  User, UserCog, Database, RefreshCw, ArrowLeftRight
+  User, UserCog, Database, RefreshCw, ArrowLeftRight, CheckCircle, XCircle, AlertCircle
 } from "lucide-react";
 import {
   Select,
@@ -20,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
@@ -27,12 +29,38 @@ const Settings: React.FC = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem("2getherLoop_theme") || "light");
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [databaseStatus, setDatabaseStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      setDatabaseStatus('checking');
+      
+      if (!isSupabaseConfigured()) {
+        setDatabaseStatus('disconnected');
+        return;
+      }
+      
+      try {
+        const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+        
+        if (error) {
+          throw error;
+        }
+        
+        setDatabaseStatus('connected');
+      } catch (error) {
+        console.error('Supabase connection check failed:', error);
+        setDatabaseStatus('disconnected');
+      }
+    };
+    
+    checkConnection();
+  }, []);
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
     localStorage.setItem("2getherLoop_theme", newTheme);
     
-    // Apply theme to document
     document.documentElement.classList.remove("light", "dark", "couple-mode");
     document.documentElement.classList.add(newTheme);
     
@@ -103,7 +131,7 @@ const Settings: React.FC = () => {
         <h1 className="text-2xl font-bold mb-6 gradient-heading">Settings</h1>
 
         <Tabs defaultValue="appearance">
-          <TabsList className="grid grid-cols-3 mb-6">
+          <TabsList className="grid grid-cols-4 mb-6">
             <TabsTrigger value="appearance">
               <Palette className="h-4 w-4 mr-2" />
               Appearance
@@ -115,6 +143,10 @@ const Settings: React.FC = () => {
             <TabsTrigger value="profile">
               <UserCog className="h-4 w-4 mr-2" />
               Profile
+            </TabsTrigger>
+            <TabsTrigger value="connection">
+              <CloudCog className="h-4 w-4 mr-2" />
+              Connection
             </TabsTrigger>
           </TabsList>
           
@@ -283,6 +315,63 @@ const Settings: React.FC = () => {
                     </div>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="connection" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Database Connection</CardTitle>
+                <CardDescription>
+                  Manage your Supabase connection settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3 p-4 rounded-lg border">
+                  {databaseStatus === 'connected' ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : databaseStatus === 'disconnected' ? (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <RefreshCw className="h-5 w-5 text-yellow-500 animate-spin" />
+                  )}
+                  
+                  <div>
+                    <h3 className="font-medium">Database Status</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {databaseStatus === 'connected' 
+                        ? 'Connected to Supabase' 
+                        : databaseStatus === 'disconnected'
+                        ? 'Not connected to Supabase - Using local storage'
+                        : 'Checking connection...'}
+                    </p>
+                  </div>
+                </div>
+                
+                {databaseStatus === 'disconnected' && (
+                  <Alert variant="warning" className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+                    <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+                    <AlertTitle>Missing Supabase configuration</AlertTitle>
+                    <AlertDescription>
+                      <p className="mb-2">The application is currently using local storage because Supabase credentials are missing.</p>
+                      <p className="mb-4">To connect to Supabase, you need to set the following environment variables:</p>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li><code className="bg-muted px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> - Your Supabase project URL</li>
+                        <li><code className="bg-muted px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code> - Your Supabase anonymous key</li>
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.location.reload()}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Check Connection Again
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Pact, PactLog, User, CompletionStatus } from "@/types";
 import { v4 as uuidv4 } from 'uuid';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useToast } from "@/hooks/use-toast";
 
 interface PactContextType {
@@ -43,103 +43,119 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pacts, setPacts] = useState<Pact[]>([]);
   const [completions, setCompletions] = useState<PactLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [usingLocalStorage, setUsingLocalStorage] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchPacts = async () => {
       setIsLoading(true);
-      try {
-        const { data: pactsData, error: pactsError } = await supabase
-          .from('pacts')
-          .select('*');
-        
-        if (pactsError) {
-          throw pactsError;
+      
+      const supabaseConfigured = isSupabaseConfigured();
+      
+      if (supabaseConfigured) {
+        try {
+          const { data: pactsData, error: pactsError } = await supabase
+            .from('pacts')
+            .select('*');
+          
+          if (pactsError) {
+            throw pactsError;
+          }
+
+          const { data: logsData, error: logsError } = await supabase
+            .from('pact_logs')
+            .select('*');
+          
+          if (logsError) {
+            throw logsError;
+          }
+
+          const transformedPacts: Pact[] = pactsData.map(p => ({
+            id: p.id,
+            title: p.title,
+            description: p.description || undefined,
+            frequency: p.frequency,
+            assignedTo: p.assigned_to,
+            proofType: p.proof_type,
+            deadline: p.deadline,
+            maxFailCount: p.max_fail_count,
+            punishment: p.punishment,
+            reward: p.reward,
+            createdAt: p.created_at,
+            startDate: p.start_date,
+            color: p.color || undefined,
+            isVerified: p.is_verified
+          }));
+
+          const transformedLogs: PactLog[] = logsData.map(log => ({
+            id: log.id,
+            pactId: log.pact_id,
+            userId: log.user_id as User["id"],
+            date: log.date,
+            status: log.status,
+            completedAt: log.completed_at,
+            note: log.note || undefined,
+            proofType: log.proof_type || undefined,
+            proofUrl: log.proof_url || undefined,
+            verifiedBy: log.verified_by || undefined,
+            verifiedAt: log.verified_at || undefined,
+            comment: log.comment || undefined
+          }));
+
+          setPacts(transformedPacts);
+          setCompletions(transformedLogs);
+          setUsingLocalStorage(false);
+          
+        } catch (error) {
+          console.error('Error fetching data from Supabase:', error);
+          loadFromLocalStorage();
         }
-
-        const { data: logsData, error: logsError } = await supabase
-          .from('pact_logs')
-          .select('*');
-        
-        if (logsError) {
-          throw logsError;
-        }
-
-        const transformedPacts: Pact[] = pactsData.map(p => ({
-          id: p.id,
-          title: p.title,
-          description: p.description || undefined,
-          frequency: p.frequency,
-          assignedTo: p.assigned_to,
-          proofType: p.proof_type,
-          deadline: p.deadline,
-          maxFailCount: p.max_fail_count,
-          punishment: p.punishment,
-          reward: p.reward,
-          createdAt: p.created_at,
-          startDate: p.start_date,
-          color: p.color || undefined,
-          isVerified: p.is_verified
-        }));
-
-        const transformedLogs: PactLog[] = logsData.map(log => ({
-          id: log.id,
-          pactId: log.pact_id,
-          userId: log.user_id as User["id"],
-          date: log.date,
-          status: log.status,
-          completedAt: log.completed_at,
-          note: log.note || undefined,
-          proofType: log.proof_type || undefined,
-          proofUrl: log.proof_url || undefined,
-          verifiedBy: log.verified_by || undefined,
-          verifiedAt: log.verified_at || undefined,
-          comment: log.comment || undefined
-        }));
-
-        setPacts(transformedPacts);
-        setCompletions(transformedLogs);
-      } catch (error) {
-        console.error('Error fetching data from Supabase:', error);
-        
-        const storedPacts = localStorage.getItem("2getherLoop_pacts");
-        const storedCompletions = localStorage.getItem("2getherLoop_completions");
-        
-        setPacts(storedPacts ? JSON.parse(storedPacts) : []);
-        setCompletions(storedCompletions ? JSON.parse(storedCompletions) : []);
-        
-        toast({
-          title: "Error fetching data",
-          description: "Falling back to local storage.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
+      } else {
+        loadFromLocalStorage();
       }
+      
+      setIsLoading(false);
+    };
+    
+    const loadFromLocalStorage = () => {
+      const storedPacts = localStorage.getItem("2getherLoop_pacts");
+      const storedCompletions = localStorage.getItem("2getherLoop_completions");
+      
+      setPacts(storedPacts ? JSON.parse(storedPacts) : []);
+      setCompletions(storedCompletions ? JSON.parse(storedCompletions) : []);
+      setUsingLocalStorage(true);
+      
+      toast({
+        title: "Using local storage",
+        description: "No connection to Supabase, using local storage instead.",
+        variant: "warning"
+      });
     };
 
     fetchPacts();
     
-    const pactsSubscription = supabase
-      .channel('pacts-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pacts' }, payload => {
-        console.log('Pacts change received!', payload);
-        fetchPacts();
-      })
-      .subscribe();
-      
-    const logsSubscription = supabase
-      .channel('logs-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pact_logs' }, payload => {
-        console.log('Logs change received!', payload);
-        fetchPacts();
-      })
-      .subscribe();
-      
-    return () => {
-      pactsSubscription.unsubscribe();
-      logsSubscription.unsubscribe();
-    };
+    if (isSupabaseConfigured()) {
+      const pactsSubscription = supabase
+        .channel('pacts-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pacts' }, payload => {
+          console.log('Pacts change received!', payload);
+          fetchPacts();
+        })
+        .subscribe();
+        
+      const logsSubscription = supabase
+        .channel('logs-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pact_logs' }, payload => {
+          console.log('Logs change received!', payload);
+          fetchPacts();
+        })
+        .subscribe();
+        
+      return () => {
+        pactsSubscription.unsubscribe();
+        logsSubscription.unsubscribe();
+      };
+    }
   }, [toast]);
   
   useEffect(() => {
@@ -163,29 +179,29 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
         startDate: pact.startDate || new Date().toISOString().split('T')[0]
       };
       
-      const { data, error } = await supabase
-        .from('pacts')
-        .insert({
-          id: newPact.id,
-          title: newPact.title,
-          description: newPact.description || null,
-          frequency: newPact.frequency,
-          assigned_to: newPact.assignedTo,
-          proof_type: newPact.proofType,
-          deadline: newPact.deadline,
-          max_fail_count: newPact.maxFailCount,
-          punishment: newPact.punishment,
-          reward: newPact.reward,
-          start_date: newPact.startDate,
-          color: newPact.color || null,
-          is_verified: newPact.isVerified || false,
-          created_by: "user_a",
-          created_at: newPact.createdAt
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
+      if (!usingLocalStorage && isSupabaseConfigured()) {
+        const { error } = await supabase
+          .from('pacts')
+          .insert({
+            id: newPact.id,
+            title: newPact.title,
+            description: newPact.description || null,
+            frequency: newPact.frequency,
+            assigned_to: newPact.assignedTo,
+            proof_type: newPact.proofType,
+            deadline: newPact.deadline,
+            max_fail_count: newPact.maxFailCount,
+            punishment: newPact.punishment,
+            reward: newPact.reward,
+            start_date: newPact.startDate,
+            color: newPact.color || null,
+            is_verified: newPact.isVerified || false,
+            created_by: "user_a",
+            created_at: newPact.createdAt
+          });
+          
+        if (error) throw error;
+      }
       
       setPacts(prevPacts => [...prevPacts, newPact]);
       
@@ -197,7 +213,7 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error adding pact:', error);
       toast({
         title: "Error creating pact",
-        description: "There was an error creating your pact. Please try again.",
+        description: "There was an error creating your pact. Saved to local storage only.",
         variant: "destructive"
       });
     }
@@ -205,25 +221,27 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updatePact = async (pact: Pact) => {
     try {
-      const { error } = await supabase
-        .from('pacts')
-        .update({
-          title: pact.title,
-          description: pact.description || null,
-          frequency: pact.frequency,
-          assigned_to: pact.assignedTo,
-          proof_type: pact.proofType,
-          deadline: pact.deadline,
-          max_fail_count: pact.maxFailCount,
-          punishment: pact.punishment,
-          reward: pact.reward,
-          start_date: pact.startDate,
-          color: pact.color || null,
-          is_verified: pact.isVerified || false
-        })
-        .eq('id', pact.id);
-        
-      if (error) throw error;
+      if (!usingLocalStorage && isSupabaseConfigured()) {
+        const { error } = await supabase
+          .from('pacts')
+          .update({
+            title: pact.title,
+            description: pact.description || null,
+            frequency: pact.frequency,
+            assigned_to: pact.assignedTo,
+            proof_type: pact.proofType,
+            deadline: pact.deadline,
+            max_fail_count: pact.maxFailCount,
+            punishment: pact.punishment,
+            reward: pact.reward,
+            start_date: pact.startDate,
+            color: pact.color || null,
+            is_verified: pact.isVerified || false
+          })
+          .eq('id', pact.id);
+          
+        if (error) throw error;
+      }
       
       setPacts(prevPacts =>
         prevPacts.map(p => (p.id === pact.id ? pact : p))
@@ -237,8 +255,8 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error updating pact:', error);
       toast({
         title: "Error updating pact",
-        description: "There was an error updating your pact. Please try again.",
-        variant: "destructive"
+        description: "There was an error updating your pact on the server. Local copy updated.",
+        variant: "warning"
       });
     }
   };
