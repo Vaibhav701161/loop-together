@@ -9,7 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Pact } from "@/types";
 import { usePacts } from "@/context/PactContext";
 import { useAuth } from "@/context/AuthContext";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { Image, X, Check, Camera } from "lucide-react";
+import confetti from 'canvas-confetti';
 
 interface ProofDialogProps {
   pact: Pact;
@@ -18,14 +20,17 @@ interface ProofDialogProps {
 }
 
 const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) => {
-  const { addPactLog } = usePacts();
-  const { activeUser } = useAuth();
+  const { addPactLog, getPactStatus, isPactLost } = usePacts();
+  const { activeUser, users } = useAuth();
   const [textProof, setTextProof] = useState("");
   const [isChecked, setIsChecked] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [comment, setComment] = useState("");
 
   const today = format(new Date(), "yyyy-MM-dd");
+  const isPactAlreadyCompleted = getPactStatus(pact.id, activeUser?.id || "", today) === "completed";
+  const pactLost = isPactLost(pact.id, activeUser?.id || "");
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -39,6 +44,14 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) =
       setIsUploading(false);
     };
     reader.readAsDataURL(file);
+  };
+
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
   };
 
   const handleSubmit = () => {
@@ -66,13 +79,18 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) =
       proof: {
         type: pact.proofType,
         content: proofContent
-      }
+      },
+      comment: comment
     });
+
+    // Trigger confetti animation on successful completion
+    triggerConfetti();
 
     // Reset form and close dialog
     setTextProof("");
     setIsChecked(false);
     setImagePreview(null);
+    setComment("");
     onOpenChange(false);
   };
 
@@ -83,15 +101,19 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) =
       pactId: pact.id,
       userId: activeUser.id,
       date: today,
-      status: "failed"
+      status: "failed",
+      comment: comment
     });
 
     // Reset form and close dialog
     setTextProof("");
     setIsChecked(false);
     setImagePreview(null);
+    setComment("");
     onOpenChange(false);
   };
+
+  const otherUser = users.find(u => u.id !== activeUser?.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -103,73 +125,127 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) =
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
-          {pact.proofType === "text" && (
-            <div className="grid gap-2">
-              <Label htmlFor="text-proof">Provide text proof</Label>
-              <Textarea
-                id="text-proof"
-                value={textProof}
-                onChange={(e) => setTextProof(e.target.value)}
-                placeholder="Describe how you completed this task..."
-                className="min-h-[100px]"
-              />
+        <div className="py-4 space-y-4">
+          {isPactAlreadyCompleted ? (
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md text-center">
+              <Check className="mx-auto h-8 w-8 text-green-500 mb-2" />
+              <p className="text-green-700 dark:text-green-300 font-medium">
+                You've already completed this pact today!
+              </p>
+              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                Good job keeping your streak going!
+              </p>
             </div>
-          )}
-
-          {pact.proofType === "checkbox" && (
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="check-proof" 
-                checked={isChecked} 
-                onCheckedChange={(checked) => setIsChecked(checked === true)}
-              />
-              <Label htmlFor="check-proof">I confirm that I have completed this task</Label>
+          ) : pactLost ? (
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-md text-center">
+              <X className="mx-auto h-8 w-8 text-red-500 mb-2" />
+              <p className="text-red-700 dark:text-red-300 font-medium">
+                You've lost this pact!
+              </p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {pact.punishment || "Time to face the consequences."}
+              </p>
             </div>
-          )}
-
-          {pact.proofType === "image" && (
-            <div className="grid gap-4">
-              <Label htmlFor="image-proof">Upload proof image</Label>
-              
-              <Input
-                id="image-proof"
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-              />
-              
-              {isUploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
-              
-              {imagePreview && (
-                <div className="mt-2">
-                  <img 
-                    src={imagePreview} 
-                    alt="Proof preview" 
-                    className="max-h-[200px] rounded-md object-contain mx-auto border"
+          ) : (
+            <>
+              {pact.proofType === "text" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="text-proof">Provide text proof</Label>
+                  <Textarea
+                    id="text-proof"
+                    value={textProof}
+                    onChange={(e) => setTextProof(e.target.value)}
+                    placeholder="Describe how you completed this task..."
+                    className="min-h-[100px]"
                   />
                 </div>
               )}
-            </div>
+
+              {pact.proofType === "checkbox" && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="check-proof" 
+                    checked={isChecked} 
+                    onCheckedChange={(checked) => setIsChecked(checked === true)}
+                  />
+                  <Label htmlFor="check-proof">I confirm that I have completed this task</Label>
+                </div>
+              )}
+
+              {pact.proofType === "image" && (
+                <div className="grid gap-4">
+                  <Label htmlFor="image-proof" className="flex items-center gap-2">
+                    <Image className="h-4 w-4" /> Upload proof image
+                  </Label>
+                  
+                  <div className="grid gap-2">
+                    <Input
+                      id="image-proof"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="file:bg-primary file:text-primary-foreground file:border-0 file:rounded file:px-2 file:py-1 file:mr-2 hover:file:bg-primary/90"
+                    />
+                    
+                    {isUploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
+                    
+                    {imagePreview && (
+                      <div className="mt-2">
+                        <div className="relative border rounded-md overflow-hidden">
+                          <img 
+                            src={imagePreview} 
+                            alt="Proof preview" 
+                            className="max-h-[200px] w-full object-contain mx-auto"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-2 py-1">
+                            {format(new Date(), "PPp")}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-2">
+                <Label htmlFor="comment">Additional comment (optional)</Label>
+                <Textarea
+                  id="comment"
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Add any additional information..."
+                  className="min-h-[60px]"
+                />
+              </div>
+            </>
           )}
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={handleFail} className="sm:w-1/2">
-            Failed Today
-          </Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={
-              (pact.proofType === "text" && !textProof) ||
-              (pact.proofType === "checkbox" && !isChecked) ||
-              (pact.proofType === "image" && !imagePreview) ||
-              isUploading
-            }
-            className="sm:w-1/2"
-          >
-            Complete
-          </Button>
+          {!isPactAlreadyCompleted && !pactLost && (
+            <>
+              <Button variant="outline" onClick={handleFail} className="sm:w-1/2">
+                Failed Today
+              </Button>
+              <Button 
+                onClick={handleSubmit} 
+                disabled={
+                  (pact.proofType === "text" && !textProof) ||
+                  (pact.proofType === "checkbox" && !isChecked) ||
+                  (pact.proofType === "image" && !imagePreview) ||
+                  isUploading
+                }
+                className="sm:w-1/2"
+              >
+                Complete
+              </Button>
+            </>
+          )}
+          {(isPactAlreadyCompleted || pactLost) && (
+            <Button onClick={() => onOpenChange(false)} className="w-full">
+              Close
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

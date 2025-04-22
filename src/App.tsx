@@ -13,6 +13,13 @@ import CreatePact from "./pages/CreatePact";
 import History from "./pages/History";
 import Notes from "./pages/Notes";
 import NotFound from "./pages/NotFound";
+import WeeklySpend from "./pages/WeeklySpend";
+import StudyTracker from "./pages/StudyTracker";
+import GymTracker from "./pages/GymTracker";
+import PactTimeline from "./pages/PactTimeline";
+import Comparison from "./pages/Comparison";
+import Milestones from "./pages/Milestones";
+import { ReminderProvider } from "./context/ReminderContext";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +46,12 @@ const AppRoutes = () => {
       <Route path="/create" element={<ProtectedRoute><CreatePact /></ProtectedRoute>} />
       <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
       <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+      <Route path="/weekly-spend" element={<ProtectedRoute><WeeklySpend /></ProtectedRoute>} />
+      <Route path="/study" element={<ProtectedRoute><StudyTracker /></ProtectedRoute>} />
+      <Route path="/gym" element={<ProtectedRoute><GymTracker /></ProtectedRoute>} />
+      <Route path="/timeline" element={<ProtectedRoute><PactTimeline /></ProtectedRoute>} />
+      <Route path="/comparison" element={<ProtectedRoute><Comparison /></ProtectedRoute>} />
+      <Route path="/milestones" element={<ProtectedRoute><Milestones /></ProtectedRoute>} />
       
       {/* Catch-all route */}
       <Route path="*" element={<NotFound />} />
@@ -52,11 +65,13 @@ const App = () => (
       <AuthProvider>
         <PactProvider>
           <NotesProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
+            <ReminderProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </ReminderProvider>
           </NotesProvider>
         </PactProvider>
       </AuthProvider>

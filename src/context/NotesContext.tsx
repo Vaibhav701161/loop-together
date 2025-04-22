@@ -1,28 +1,31 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Note, User } from "@/types";
-import { useToast } from "@/components/ui/use-toast";
+import { Note } from "@/types";
+import { useAuth } from "./AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 interface NotesContextType {
   notes: Note[];
   addNote: (note: Omit<Note, "id" | "createdAt">) => void;
+  updateNote: (note: Note) => void;
   deleteNote: (noteId: string) => void;
-  getUserNotes: (userId: User["id"]) => Note[];
+  pinNote: (noteId: string, isPinned: boolean) => void;
+  getPinnedNotes: () => Note[];
 }
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
 
-export const useNotes = () => {
+export const useNotesContext = () => {
   const context = useContext(NotesContext);
   if (!context) {
-    throw new Error("useNotes must be used within a NotesProvider");
+    throw new Error("useNotesContext must be used within a NotesProvider");
   }
   return context;
 };
 
 export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notes, setNotes] = useState<Note[]>([]);
-  const { toast } = useToast();
+  const { activeUser } = useAuth();
 
   // Load notes from localStorage
   useEffect(() => {
@@ -32,45 +35,54 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, []);
 
-  // Save notes to localStorage when they change
+  // Save notes to localStorage
   useEffect(() => {
     localStorage.setItem("2getherLoop_notes", JSON.stringify(notes));
   }, [notes]);
 
   const addNote = (noteData: Omit<Note, "id" | "createdAt">) => {
+    if (!activeUser) return;
+
+    const id = `note_${Date.now().toString(36)}`;
     const newNote: Note = {
       ...noteData,
-      id: `note_${Date.now().toString(36)}`,
+      id,
       createdAt: new Date().toISOString(),
     };
-    
-    setNotes(prev => [...prev, newNote]);
-    
-    toast({
-      title: "Note Added! 📝",
-      description: "Your note has been added to the wall.",
-    });
+
+    setNotes(prev => [newNote, ...prev]);
+  };
+
+  const updateNote = (updatedNote: Note) => {
+    setNotes(prev => 
+      prev.map(note => note.id === updatedNote.id ? updatedNote : note)
+    );
   };
 
   const deleteNote = (noteId: string) => {
     setNotes(prev => prev.filter(note => note.id !== noteId));
-    
-    toast({
-      title: "Note Removed",
-      description: "The note has been removed from the wall.",
-    });
   };
 
-  const getUserNotes = (userId: User["id"]): Note[] => {
-    return notes.filter(note => note.toUserId === userId);
+  const pinNote = (noteId: string, isPinned: boolean) => {
+    setNotes(prev => 
+      prev.map(note => 
+        note.id === noteId ? { ...note, isPinned } : note
+      )
+    );
+  };
+
+  const getPinnedNotes = () => {
+    return notes.filter(note => note.isPinned);
   };
 
   return (
-    <NotesContext.Provider value={{ 
+    <NotesContext.Provider value={{
       notes,
       addNote,
+      updateNote,
       deleteNote,
-      getUserNotes,
+      pinNote,
+      getPinnedNotes
     }}>
       {children}
     </NotesContext.Provider>

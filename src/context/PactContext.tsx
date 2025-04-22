@@ -1,9 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Pact, PactLog, Streak, User, CompletionStatus } from "@/types";
 import { useAuth } from "./AuthContext";
-import { format, isToday, parseISO, startOfDay, subDays } from "date-fns";
-import { useToast } from "@/components/ui/use-toast";
+import { format, isToday, parseISO, startOfDay, subDays, isPast } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface PactContextType {
   pacts: Pact[];
@@ -28,6 +27,7 @@ interface PactContextType {
     currentStreak: number;
     totalCompleted: number;
   };
+  isPactLost: (pactId: string, userId: User["id"]) => boolean;
 }
 
 const PactContext = createContext<PactContextType | undefined>(undefined);
@@ -44,10 +44,9 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pacts, setPacts] = useState<Pact[]>([]);
   const [logs, setLogs] = useState<PactLog[]>([]);
   const [streaks, setStreaks] = useState<Record<string, Streak>>({});
-  const { activeUser } = useAuth();
+  const { activeUser, users } = useAuth();
   const { toast } = useToast();
 
-  // Load data from localStorage
   useEffect(() => {
     const storedPacts = localStorage.getItem("2getherLoop_pacts");
     const storedLogs = localStorage.getItem("2getherLoop_pactLogs");
@@ -64,7 +63,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Save data to localStorage on change
   useEffect(() => {
     localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
   }, [pacts]);
@@ -77,7 +75,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("2getherLoop_streaks", JSON.stringify(streaks));
   }, [streaks]);
 
-  // Update streaks when logs change
   useEffect(() => {
     updateAllStreaks();
   }, [logs]);
@@ -92,7 +89,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setPacts(prev => [...prev, newPact]);
     
-    // Initialize streak
     setStreaks(prev => ({
       ...prev,
       [id]: {
@@ -128,10 +124,8 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setPacts(prev => prev.filter(pact => pact.id !== pactId));
     
-    // Also delete related logs
     setLogs(prev => prev.filter(log => log.pactId !== pactId));
     
-    // And remove streak
     setStreaks(prev => {
       const newStreaks = { ...prev };
       delete newStreaks[pactId];
@@ -147,7 +141,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addPactLog = (logData: Omit<PactLog, "id" | "completedAt">, notify = true) => {
     const today = format(new Date(), "yyyy-MM-dd");
     
-    // Check if a log already exists for this pact, user, and date
     const existingLogIndex = logs.findIndex(log => 
       log.pactId === logData.pactId && 
       log.userId === logData.userId && 
@@ -165,19 +158,50 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     if (existingLogIndex >= 0) {
-      // Update existing log
       const updatedLogs = [...logs];
       updatedLogs[existingLogIndex] = newLog;
       setLogs(updatedLogs);
     } else {
-      // Add new log
       setLogs(prev => [...prev, newLog]);
     }
     
-    if (notify) {
+    if (logData.status === "failed") {
+      const pact = pacts.find(p => p.id === logData.pactId);
+      
+      if (pact) {
+        const failureCount = logs.filter(log => 
+          log.pactId === logData.pactId && 
+          log.userId === logData.userId && 
+          log.status === "failed"
+        ).length + 1;
+        
+        if (failureCount >= pact.maxFailCount && notify) {
+          toast({
+            title: "Pact Lost 😢",
+            description: `You've reached the maximum number of failures for "${pact.title}". ${pact.punishment}`,
+            variant: "destructive",
+            duration: 10000
+          });
+        }
+      }
+    }
+    
+    if (logData.status === "completed" && notify) {
+      const pact = pacts.find(p => p.id === logData.pactId);
+      
+      if (pact) {
+        toast({
+          title: "Pact Completed! 🎉",
+          description: `Your pact "${pact.title}" has been marked as completed.`,
+          duration: 5000
+        });
+      }
+    } else if (notify) {
       toast({
-        title: logData.status === "completed" ? "Pact Completed! 🎉" : logData.status === "failed" ? "Pact Failed 😢" : "Pact Updated",
+        title: logData.status === "failed" ? "Pact Failed 😢" : "Pact Updated",
         description: `Your pact has been marked as ${logData.status}.`,
+        variant: logData.status === "failed" ? "destructive" : "default",
+        duration: 5000
       });
     }
   };
@@ -185,11 +209,9 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateAllStreaks = () => {
     const newStreaks: Record<string, Streak> = {};
     
-    // Process each pact
     pacts.forEach(pact => {
       const pactLogs = logs.filter(log => log.pactId === pact.id);
       
-      // Skip if no logs
       if (pactLogs.length === 0) {
         newStreaks[pact.id] = {
           pactId: pact.id,
@@ -200,7 +222,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      // Sort logs by date
       const sortedLogs = [...pactLogs].sort((a, b) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
@@ -209,10 +230,8 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let longest = 0;
       let total = 0;
       
-      // Count completed logs for total
       total = sortedLogs.filter(log => log.status === "completed").length;
       
-      // Calculate current streak
       const today = new Date();
       let checkDate = today;
       let streakBroken = false;
@@ -221,7 +240,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const dateStr = format(checkDate, "yyyy-MM-dd");
         const relevantLogs = sortedLogs.filter(log => log.date === dateStr);
         
-        // For today and past days, check if all assigned users completed their pacts
         if (relevantLogs.length > 0) {
           const allCompleted = relevantLogs.every(log => log.status === "completed");
           
@@ -231,24 +249,18 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
             streakBroken = true;
           }
         } else {
-          // No logs for this date
           if (!isToday(checkDate)) {
-            // For past days with no logs, break the streak
             streakBroken = true;
           } else {
-            // For today with no logs yet, don't break the streak but stop counting
             break;
           }
         }
         
-        // Move to previous day
         checkDate = subDays(checkDate, 1);
         
-        // Limit to 365 days to prevent infinite loop
         if (current > 365) break;
       }
       
-      // Calculate longest streak
       let tempStreak = 0;
       let previousDate: Date | null = null;
       
@@ -257,10 +269,8 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const logDate = parseISO(log.date);
           
           if (previousDate === null) {
-            // First completed log
             tempStreak = 1;
           } else {
-            // Check if the log date is consecutive with the previous date
             const diffDays = Math.floor(
               (startOfDay(logDate).getTime() - startOfDay(previousDate).getTime()) / 
               (1000 * 60 * 60 * 24)
@@ -269,7 +279,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (diffDays === 1) {
               tempStreak++;
             } else {
-              // Reset streak if not consecutive
               tempStreak = 1;
             }
           }
@@ -277,7 +286,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
           previousDate = logDate;
           longest = Math.max(longest, tempStreak);
         } else {
-          // Reset streak on failure
           tempStreak = 0;
           previousDate = null;
         }
@@ -309,7 +317,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userIdToUse = userId || activeUser?.id || "";
     
     return pacts.filter(pact => {
-      // Check if pact is assigned to this user
       if (
         pact.assignedTo !== userIdToUse && 
         pact.assignedTo !== "both"
@@ -406,14 +413,12 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const completedToday = todayLogs.filter(log => log.status === "completed").length;
     
-    // Calculate the longest current streak across all pacts
     let maxCurrentStreak = 0;
     for (const pact of userPacts) {
       const streak = getPactStreak(pact.id);
       maxCurrentStreak = Math.max(maxCurrentStreak, streak.current);
     }
     
-    // Calculate total completed pacts for this user
     const totalCompleted = logs.filter(
       log => log.userId === userIdToUse && log.status === "completed"
     ).length;
@@ -425,6 +430,65 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalCompleted,
     };
   };
+
+  const isPactLost = (pactId: string, userId: User["id"]): boolean => {
+    const pact = pacts.find(p => p.id === pactId);
+    if (!pact) return false;
+    
+    const failureCount = logs.filter(log => 
+      log.pactId === pactId && 
+      log.userId === userId && 
+      log.status === "failed"
+    ).length;
+    
+    return failureCount >= pact.maxFailCount;
+  };
+
+  useEffect(() => {
+    if (!activeUser) return;
+    
+    const checkMissedDeadlines = () => {
+      const now = new Date();
+      const today = format(now, "yyyy-MM-dd");
+      
+      users.forEach(user => {
+        const userPacts = pacts.filter(pact => 
+          (pact.assignedTo === user.id || pact.assignedTo === "both") &&
+          getPactStatus(pact.id, user.id, today) === "pending"
+        );
+        
+        userPacts.forEach(pact => {
+          const [hours, minutes] = pact.deadline.split(":").map(Number);
+          
+          const deadlineDate = new Date();
+          deadlineDate.setHours(hours, minutes, 0, 0);
+          
+          if (isPast(deadlineDate)) {
+            const existingLog = logs.find(log => 
+              log.pactId === pact.id && 
+              log.userId === user.id && 
+              log.date === today
+            );
+            
+            if (!existingLog) {
+              addPactLog({
+                pactId: pact.id,
+                userId: user.id,
+                date: today,
+                status: "failed"
+              }, false);
+            }
+          }
+        });
+      });
+    };
+    
+    checkMissedDeadlines();
+    
+    const interval = setInterval(checkMissedDeadlines, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [activeUser, pacts, logs]);
 
   return (
     <PactContext.Provider value={{
@@ -445,6 +509,7 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getPactLogs,
       getPact,
       calculateSummary,
+      isPactLost,
     }}>
       {children}
     </PactContext.Provider>
