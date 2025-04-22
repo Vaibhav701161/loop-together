@@ -124,6 +124,9 @@ const Comparison: React.FC = () => {
     }
   };
 
+  const { activeUser } = useAuth();
+  const currentUserId = activeUser?.id as "user_a" | "user_b";
+
   return (
     <Layout>
       <div className="container mx-auto max-w-4xl px-4 py-6">
@@ -218,7 +221,7 @@ const Comparison: React.FC = () => {
         
         <div className="mt-8">
           <h2 className="text-xl font-semibold mb-4">Streak Heatmap</h2>
-          <StreakHeatmap />
+          <StreakHeatmap userId={currentUserId} />
         </div>
       </div>
     </Layout>
