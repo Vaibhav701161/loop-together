@@ -19,7 +19,10 @@ import GymTracker from "./pages/GymTracker";
 import PactTimeline from "./pages/PactTimeline";
 import Comparison from "./pages/Comparison";
 import Milestones from "./pages/Milestones";
+import Settings from "./pages/Settings";
+import MediaGallery from "./pages/MediaGallery";
 import { ReminderProvider } from "./context/ReminderContext";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +33,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (!isLoggedIn) {
     return <Navigate to="/login" replace />;
   }
+  
+  return <>{children}</>;
+};
+
+const ThemeInitializer = ({ children }: { children: React.ReactNode }) => {
+  useEffect(() => {
+    // Apply the saved theme from localStorage or default to light
+    const savedTheme = localStorage.getItem("2getherLoop_theme") || "light";
+    document.documentElement.classList.add(savedTheme);
+  }, []);
   
   return <>{children}</>;
 };
@@ -52,6 +65,8 @@ const AppRoutes = () => {
       <Route path="/timeline" element={<ProtectedRoute><PactTimeline /></ProtectedRoute>} />
       <Route path="/comparison" element={<ProtectedRoute><Comparison /></ProtectedRoute>} />
       <Route path="/milestones" element={<ProtectedRoute><Milestones /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/gallery" element={<ProtectedRoute><MediaGallery /></ProtectedRoute>} />
       
       {/* Catch-all route */}
       <Route path="*" element={<NotFound />} />
@@ -62,19 +77,21 @@ const AppRoutes = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AuthProvider>
-        <PactProvider>
-          <NotesProvider>
-            <ReminderProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-            </ReminderProvider>
-          </NotesProvider>
-        </PactProvider>
-      </AuthProvider>
+      <ThemeInitializer>
+        <AuthProvider>
+          <PactProvider>
+            <NotesProvider>
+              <ReminderProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+              </ReminderProvider>
+            </NotesProvider>
+          </PactProvider>
+        </AuthProvider>
+      </ThemeInitializer>
     </TooltipProvider>
   </QueryClientProvider>
 );

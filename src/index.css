@@ -5,6 +5,7 @@
 
 @layer base {
   :root {
+    /* Light mode colors */
     --background: 270 100% 98%;
     --foreground: 270 10% 20%;
 
@@ -34,6 +35,81 @@
     --ring: 270 80% 50%;
 
     --radius: 1rem;
+
+    /* Custom couple theme colors */
+    --couple-purple: 270 80% 50%;
+    --couple-pink: 340 80% 60%;
+    --couple-orange: 30 95% 60%;
+  }
+
+  .dark {
+    --background: 270 30% 5%;
+    --foreground: 270 10% 95%;
+
+    --card: 270 30% 9%;
+    --card-foreground: 270 10% 95%;
+
+    --popover: 270 30% 9%;
+    --popover-foreground: 270 10% 95%;
+
+    --primary: 270 70% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 30 85% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 270 20% 15%;
+    --muted-foreground: 270 10% 70%;
+
+    --accent: 340 70% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 74.2% 50.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 270 20% 25%;
+    --input: 270 20% 25%;
+    --ring: 270 70% 60%;
+
+    /* Custom couple theme colors - darker */
+    --couple-purple: 270 70% 60%;
+    --couple-pink: 340 70% 55%;
+    --couple-orange: 30 85% 55%;
+  }
+
+  .couple-mode {
+    --background: 250 100% 97%;
+    --foreground: 270 10% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 270 10% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 270 10% 20%;
+
+    --primary: 320 80% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 95% 60%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 320 10% 90%;
+    --muted-foreground: 270 10% 40%;
+
+    --accent: 30 90% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 320 20% 85%;
+    --input: 320 20% 85%;
+    --ring: 320 80% 60%;
+
+    /* Couple-specific theme colors */
+    --couple-purple: 320 80% 60%;
+    --couple-pink: 340 80% 70%;
+    --couple-orange: 30 90% 60%;
   }
 }
 
@@ -79,4 +155,87 @@
   .btn-bounce:active {
     @apply animate-bounce;
   }
+
+  /* Theme-based gradients */
+  .light .gradient-card {
+    @apply bg-gradient-to-br from-white to-muted;
+  }
+  
+  .dark .gradient-card {
+    @apply bg-gradient-to-br from-card to-card/70;
+  }
+  
+  .couple-mode .gradient-card {
+    @apply bg-gradient-to-br from-white to-accent/10;
+  }
+
+  /* Animation classes */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out forwards;
+  }
+}
+
+/* Keyframes for animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Custom theme colors */
+.text-couple-purple {
+  color: hsl(var(--couple-purple));
+}
+
+.text-couple-pink {
+  color: hsl(var(--couple-pink));
+}
+
+.text-couple-orange {
+  color: hsl(var(--couple-orange));
+}
+
+.border-l-couple-purple {
+  border-left-color: hsl(var(--couple-purple));
+}
+
+.border-l-couple-orange {
+  border-left-color: hsl(var(--couple-orange));
+}
+
+.border-l-couple-pink {
+  border-left-color: hsl(var(--couple-pink));
 }

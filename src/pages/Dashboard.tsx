@@ -8,9 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import Layout from "@/components/layout/Layout";
 import ProofDialog from "@/components/pact/ProofDialog";
+import StreakHeatmap from "@/components/streak/StreakHeatmap";
 import { Pact, CompletionStatus } from "@/types";
 import { Progress } from "@/components/ui/progress";
+import { Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import SuccessAnimation from "@/components/pact/SuccessAnimation";
 
 const Dashboard: React.FC = () => {
   const { activeUser, users } = useAuth();
@@ -24,12 +27,17 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [selectedPact, setSelectedPact] = useState<Pact | null>(null);
   const [proofDialogOpen, setProofDialogOpen] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
   const currentUser = activeUser!;
   const otherUser = users.find(u => u.id !== currentUser.id)!;
 
+  // Ensure we have valid user IDs by casting them to the expected type
+  const currentUserId = currentUser.id as "user_a" | "user_b";
+  const otherUserId = otherUser.id as "user_a" | "user_b";
+
   // Shared pacts stats, logic for both users
-  const getUserStats = (userId: string) => {
+  const getUserStats = (userId: "user_a" | "user_b") => {
     const summary = calculateSummary(userId);
     const pendingPacts = getUserPendingPacts(userId);
     const completedPacts = getUserCompletedPacts(userId);
@@ -48,12 +56,23 @@ const Dashboard: React.FC = () => {
     }
   }
 
-  const userStats = getUserStats(currentUser.id);
-  const otherUserStats = getUserStats(otherUser.id);
+  const userStats = getUserStats(currentUserId);
+  const otherUserStats = getUserStats(otherUserId);
 
   const handleProofSubmit = (pact: Pact) => {
     setSelectedPact(pact);
     setProofDialogOpen(true);
+  };
+
+  // Handle success dialog close and trigger confetti
+  const handleProofDialogOpenChange = (open: boolean) => {
+    setProofDialogOpen(open);
+    
+    // If dialog is being closed and we had a selected pact, show success animation
+    if (!open && selectedPact) {
+      setShowSuccessAnimation(true);
+      setTimeout(() => setShowSuccessAnimation(false), 2000);
+    }
   };
 
   const getStatusBadge = (status: CompletionStatus) => {
@@ -112,106 +131,114 @@ const Dashboard: React.FC = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto max-w-4xl">
-        <h1 className="text-2xl font-bold mb-2 gradient-heading">Today's Dashboard</h1>
-        <p className="text-muted-foreground mb-6">{today}</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {/* User stats card */}
-          {renderUserStatsCard(currentUser, userStats, "border-l-couple-purple", "text-couple-purple")}
-          {/* Partner stats card */}
-          {renderUserStatsCard(otherUser, otherUserStats, "border-l-couple-orange", "text-couple-orange")}
-        </div>
-        
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-bold">Your Pending Pacts</h2>
-            <Button size="sm" onClick={() => navigate("/create")}>
-              Create New
-            </Button>
+      <SuccessAnimation show={showSuccessAnimation}>
+        <div className="container mx-auto max-w-4xl">
+          <h1 className="text-2xl font-bold mb-2 gradient-heading">Today's Dashboard</h1>
+          <p className="text-muted-foreground mb-6">{today}</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            {/* User stats card */}
+            {renderUserStatsCard(currentUser, userStats, "border-l-couple-purple", "text-couple-purple")}
+            {/* Partner stats card */}
+            {renderUserStatsCard(otherUser, otherUserStats, "border-l-couple-orange", "text-couple-orange")}
           </div>
           
-          {userStats.pendingCount === 0 ? (
-            <Card className="bg-muted/30">
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <p className="text-lg mb-2">🎉 All done for today!</p>
-                <p className="text-sm text-muted-foreground">You have completed all your pacts for today.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {getUserPendingPacts(currentUser.id).map((pact) => (
-                <Card key={pact.id} className="card-hover border-l-4 border-l-primary">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle>{pact.title}</CardTitle>
-                      {getStatusBadge(getPactStatus(pact.id, currentUser.id))}
-                    </div>
-                    <CardDescription>
-                      Due by {pact.deadline} • {pact.frequency}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    {pact.description && (
-                      <p className="text-sm mb-2">{pact.description}</p>
-                    )}
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <span>Proof type: {pact.proofType}</span>
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+            <div className="lg:col-span-2">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-xl font-bold">Your Pending Pacts</h2>
+                <Button size="sm" onClick={() => navigate("/create")}>
+                  Create New
+                </Button>
+              </div>
+              
+              {userStats.pendingCount === 0 ? (
+                <Card className="bg-muted/30">
+                  <CardContent className="flex flex-col items-center justify-center py-8">
+                    <Sparkles className="h-10 w-10 text-secondary mb-2" />
+                    <p className="text-lg mb-2">🎉 All done for today!</p>
+                    <p className="text-sm text-muted-foreground">You have completed all your pacts for today.</p>
                   </CardContent>
-                  <CardFooter>
-                    <Button 
-                      variant="default" 
-                      className="w-full"
-                      onClick={() => handleProofSubmit(pact)}
-                    >
-                      Complete Task
-                    </Button>
-                  </CardFooter>
                 </Card>
-              ))}
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {getUserPendingPacts(currentUserId).map((pact) => (
+                    <Card key={pact.id} className="card-hover border-l-4 border-l-primary">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <CardTitle>{pact.title}</CardTitle>
+                          {getStatusBadge(getPactStatus(pact.id, currentUserId))}
+                        </div>
+                        <CardDescription>
+                          Due by {pact.deadline} • {pact.frequency}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-2">
+                        {pact.description && (
+                          <p className="text-sm mb-2">{pact.description}</p>
+                        )}
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <span>Proof type: {pact.proofType}</span>
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <Button 
+                          variant="default" 
+                          className="w-full"
+                          onClick={() => handleProofSubmit(pact)}
+                        >
+                          Complete Task
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+            
+            <div>
+              <StreakHeatmap userId={currentUserId} monthsToShow={2} />
+            </div>
+          </div>
+          
+          <div className="mb-8">
+            <h2 className="text-xl font-bold mb-2">Completed Today</h2>
+            
+            {userStats.completedCount === 0 ? (
+              <Card className="bg-muted/30">
+                <CardContent className="py-6">
+                  <p className="text-center text-muted-foreground">
+                    No completed pacts yet today. Get started!
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {getUserCompletedPacts(currentUserId).map((pact) => (
+                  <Card key={pact.id} className="bg-muted/30">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-md">{pact.title}</CardTitle>
+                        <Badge className="bg-green-500">Completed ✓</Badge>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-2">Completed Today</h2>
-          
-          {userStats.completedCount === 0 ? (
-            <Card className="bg-muted/30">
-              <CardContent className="py-6">
-                <p className="text-center text-muted-foreground">
-                  No completed pacts yet today. Get started!
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {getUserCompletedPacts(currentUser.id).map((pact) => (
-                <Card key={pact.id} className="bg-muted/30">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-md">{pact.title}</CardTitle>
-                      <Badge className="bg-green-500">Completed ✓</Badge>
-                    </div>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {selectedPact && (
-        <ProofDialog
-          pact={selectedPact}
-          open={proofDialogOpen}
-          onOpenChange={setProofDialogOpen}
-        />
-      )}
+        {selectedPact && (
+          <ProofDialog
+            pact={selectedPact}
+            open={proofDialogOpen}
+            onOpenChange={handleProofDialogOpenChange}
+          />
+        )}
+      </SuccessAnimation>
     </Layout>
   );
 };
 
 export default Dashboard;
-
