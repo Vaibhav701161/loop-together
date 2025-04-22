@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -15,15 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Milestone } from "@/types";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
-import { Trophy, Award, Check, Plus, Party, Gift, Target } from "lucide-react";
+import { Trophy, Award, Check, Plus, PartyPopper, Gift, Target } from "lucide-react";
 import confetti from 'canvas-confetti';
 
-// This would be a context in a real app
 const useMilestones = () => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const { pacts, logs, getPactStreak } = usePacts();
   
-  // Load milestones from localStorage
   useEffect(() => {
     const storedMilestones = localStorage.getItem("2getherLoop_milestones");
     if (storedMilestones) {
@@ -31,19 +28,15 @@ const useMilestones = () => {
     }
   }, []);
   
-  // Save milestones to localStorage
   useEffect(() => {
     localStorage.setItem("2getherLoop_milestones", JSON.stringify(milestones));
   }, [milestones]);
   
-  // Update milestone progress based on current pact data
   useEffect(() => {
     const updatedMilestones = milestones.map(milestone => {
       let currentProgress = 0;
       
-      // Calculate progress based on milestone type
       if (milestone.pactType === "gym") {
-        // Count gym streaks for both users
         const gymPacts = pacts.filter(pact => 
           pact.title.toLowerCase().includes("gym") ||
           pact.description?.toLowerCase().includes("gym") ||
@@ -52,14 +45,12 @@ const useMilestones = () => {
         );
         
         if (gymPacts.length > 0) {
-          // Sum up the current streaks for gym pacts
           currentProgress = gymPacts.reduce((total, pact) => {
             const streak = getPactStreak(pact.id);
             return total + streak.current;
           }, 0);
         }
       } else if (milestone.pactType === "study") {
-        // Count study streaks for both users
         const studyPacts = pacts.filter(pact => 
           pact.title.toLowerCase().includes("study") ||
           pact.description?.toLowerCase().includes("study") ||
@@ -68,14 +59,12 @@ const useMilestones = () => {
         );
         
         if (studyPacts.length > 0) {
-          // Sum up the current streaks for study pacts
           currentProgress = studyPacts.reduce((total, pact) => {
             const streak = getPactStreak(pact.id);
             return total + streak.current;
           }, 0);
         }
       } else if (milestone.pactType === "diet") {
-        // Count diet streaks for both users
         const dietPacts = pacts.filter(pact => 
           pact.title.toLowerCase().includes("diet") ||
           pact.title.toLowerCase().includes("sugar") ||
@@ -86,23 +75,18 @@ const useMilestones = () => {
         );
         
         if (dietPacts.length > 0) {
-          // Sum up the current streaks for diet pacts
           currentProgress = dietPacts.reduce((total, pact) => {
             const streak = getPactStreak(pact.id);
             return total + streak.current;
           }, 0);
         }
       } else if (milestone.pactType === "any") {
-        // For "any" type, count total completed pacts
         currentProgress = logs.filter(log => log.status === "completed").length;
       }
       
-      // Check if milestone is completed
       const isCompleted = currentProgress >= milestone.targetDays && !milestone.isCompleted;
       
-      // If newly completed, show confetti
       if (isCompleted && !milestone.isCompleted) {
-        // Use setTimeout to ensure this happens after state update
         setTimeout(() => {
           confetti({
             particleCount: 100,
@@ -168,7 +152,6 @@ const Milestones: React.FC = () => {
     addMilestone, 
     deleteMilestone, 
     getActiveMilestones, 
-    getComp,
     getCompletedMilestones 
   } = useMilestones();
   
@@ -212,7 +195,6 @@ const Milestones: React.FC = () => {
       reward
     });
     
-    // Reset form
     setTitle("");
     setDescription("");
     setPactType("any");
@@ -303,7 +285,7 @@ const Milestones: React.FC = () => {
         <CardFooter className="text-xs text-muted-foreground pt-0">
           {milestone.isCompleted ? (
             <div className="flex items-center">
-              <Party className="h-3 w-3 mr-1" />
+              <PartyPopper className="h-3 w-3 mr-1" />
               <span>Completed! Enjoy your reward together.</span>
             </div>
           ) : (

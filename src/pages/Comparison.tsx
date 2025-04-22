@@ -1,4 +1,3 @@
-
 import React from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -17,7 +16,7 @@ import {
   Flame, 
   Star, 
   Dumbbell, 
-  Party 
+  PartyPopper 
 } from "lucide-react";
 
 const Comparison: React.FC = () => {
@@ -35,7 +34,6 @@ const Comparison: React.FC = () => {
   const user1Summary = calculateSummary(currentUser.id);
   const user2Summary = calculateSummary(otherUser.id);
   
-  // Calculate weekly stats
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
@@ -61,7 +59,6 @@ const Comparison: React.FC = () => {
   const user1WeeklyFailed = getWeeklyFailedCount(currentUser.id);
   const user2WeeklyFailed = getWeeklyFailedCount(otherUser.id);
   
-  // Get all active pacts for each user
   const user1Pacts = pacts.filter(pact => 
     pact.assignedTo === currentUser.id || pact.assignedTo === "both"
   );
@@ -70,7 +67,6 @@ const Comparison: React.FC = () => {
     pact.assignedTo === otherUser.id || pact.assignedTo === "both"
   );
   
-  // Find longest streaks for each user
   const user1Streaks = user1Pacts.map(pact => getPactStreak(pact.id));
   const user2Streaks = user2Pacts.map(pact => getPactStreak(pact.id));
   
@@ -82,7 +78,6 @@ const Comparison: React.FC = () => {
     ? Math.max(...user2Streaks.map(streak => streak.longest))
     : 0;
   
-  // Find current longest streak for each user
   const user1CurrentLongestStreak = user1Streaks.length > 0 
     ? Math.max(...user1Streaks.map(streak => streak.current))
     : 0;
@@ -91,7 +86,6 @@ const Comparison: React.FC = () => {
     ? Math.max(...user2Streaks.map(streak => streak.current))
     : 0;
   
-  // Determine who's winning in different categories
   const activePactsWinner = user1Pacts.length > user2Pacts.length 
     ? currentUser.id 
     : user2Pacts.length > user1Pacts.length 
@@ -122,13 +116,11 @@ const Comparison: React.FC = () => {
       ? otherUser.id 
       : "tie";
   
-  // Get winner emoji
   const getWinnerEmoji = (winnerId: string | "tie") => {
     if (winnerId === "tie") return "🤝";
     return winnerId === currentUser.id ? "🔥" : "🚀";
   };
   
-  // Calculate overall weekly success rate
   const user1WeeklyTotal = user1WeeklyCompleted + user1WeeklyFailed;
   const user2WeeklyTotal = user2WeeklyCompleted + user2WeeklyFailed;
   
@@ -425,7 +417,7 @@ const Comparison: React.FC = () => {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Party className="h-5 w-5 mr-2" />
+              <PartyPopper className="h-5 w-5 mr-2" />
               Overall Performance
             </CardTitle>
           </CardHeader>

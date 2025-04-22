@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -83,10 +82,8 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) =
       comment: comment
     });
 
-    // Trigger confetti animation on successful completion
     triggerConfetti();
 
-    // Reset form and close dialog
     setTextProof("");
     setIsChecked(false);
     setImagePreview(null);
@@ -105,7 +102,6 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) =
       comment: comment
     });
 
-    // Reset form and close dialog
     setTextProof("");
     setIsChecked(false);
     setImagePreview(null);

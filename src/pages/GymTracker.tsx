@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -12,11 +11,9 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
 import { toast } from "@/hooks/use-toast";
 import { Dumbbell, Calendar, Trophy, ChevronLeft, ChevronRight } from "lucide-react";
 
-// This would be a context in a real app
 const useGymVisits = () => {
   const [visits, setVisits] = useState<GymVisit[]>([]);
   
-  // Load visits from localStorage
   useEffect(() => {
     const storedVisits = localStorage.getItem("2getherLoop_gymVisits");
     if (storedVisits) {
@@ -24,7 +21,6 @@ const useGymVisits = () => {
     }
   }, []);
   
-  // Save visits to localStorage
   useEffect(() => {
     localStorage.setItem("2getherLoop_gymVisits", JSON.stringify(visits));
   }, [visits]);
@@ -32,13 +28,11 @@ const useGymVisits = () => {
   const addVisit = (userId: string, comment?: string) => {
     const today = format(new Date(), "yyyy-MM-dd");
     
-    // Check if visit already exists for today
     const existingVisit = visits.find(
       visit => visit.userId === userId && visit.date === today
     );
     
     if (existingVisit) {
-      // Update existing visit
       setVisits(prev => 
         prev.map(visit => 
           visit.id === existingVisit.id
@@ -48,7 +42,6 @@ const useGymVisits = () => {
       );
       return existingVisit.id;
     } else {
-      // Add new visit
       const id = `gym_${Date.now().toString(36)}`;
       const newVisit: GymVisit = {
         id,
@@ -84,7 +77,6 @@ const useGymVisits = () => {
     const userVisits = getVisitsForUser(userId);
     if (userVisits.length === 0) return 0;
     
-    // Sort visits by date (newest first)
     const sortedVisits = [...userVisits].sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
@@ -92,26 +84,21 @@ const useGymVisits = () => {
     let streak = 0;
     let currentDate = new Date();
     
-    // Check if there's a visit for today
     const todayStr = format(currentDate, "yyyy-MM-dd");
     const hasTodayVisit = sortedVisits.some(visit => visit.date === todayStr);
     
     if (!hasTodayVisit) {
-      // Check if there's a visit for yesterday
       const yesterdayStr = format(new Date(currentDate.getTime() - 86400000), "yyyy-MM-dd");
       const hasYesterdayVisit = sortedVisits.some(visit => visit.date === yesterdayStr);
       
       if (!hasYesterdayVisit) {
-        // If no visit for today or yesterday, check the most recent streak
         const mostRecentVisitDate = sortedVisits[0]?.date;
         if (!mostRecentVisitDate) return 0;
         
-        // If the most recent visit is not from today or yesterday, there's no current streak
         return 0;
       }
     }
     
-    // Count consecutive days
     const visitDates = new Set(sortedVisits.map(visit => visit.date));
     let checkDate = hasTodayVisit ? new Date() : new Date(currentDate.getTime() - 86400000);
     
@@ -120,7 +107,7 @@ const useGymVisits = () => {
       
       if (visitDates.has(dateStr)) {
         streak++;
-        checkDate = new Date(checkDate.getTime() - 86400000); // Go back 1 day
+        checkDate = new Date(checkDate.getTime() - 86400000);
       } else {
         break;
       }
@@ -133,7 +120,6 @@ const useGymVisits = () => {
     const userVisits = getVisitsForUser(userId);
     if (userVisits.length === 0) return 0;
     
-    // Sort visits by date (oldest first)
     const sortedVisits = [...userVisits].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
@@ -145,7 +131,6 @@ const useGymVisits = () => {
       const prevDate = parseISO(sortedVisits[i - 1].date);
       const currDate = parseISO(sortedVisits[i].date);
       
-      // Check if dates are consecutive
       const diffTime = currDate.getTime() - prevDate.getTime();
       const diffDays = diffTime / (1000 * 60 * 60 * 24);
       
@@ -214,7 +199,6 @@ const GymTracker: React.FC = () => {
   const currentUserMonthlyVisits = getMonthlyVisitCount(currentUser.id, currentMonth);
   const otherUserMonthlyVisits = getMonthlyVisitCount(otherUser.id, currentMonth);
   
-  // Check if the user already went to the gym today
   useEffect(() => {
     const today = format(new Date(), "yyyy-MM-dd");
     const hasVisit = hasVisitOnDate(currentUser.id, today);
@@ -257,7 +241,6 @@ const GymTracker: React.FC = () => {
     setComment(e.target.value);
     
     if (wentToGymToday) {
-      // If already marked as visited, update the comment
       addVisit(currentUser.id, e.target.value);
     }
   };
@@ -270,13 +253,11 @@ const GymTracker: React.FC = () => {
     setCurrentMonth(prev => addMonths(prev, 1));
   };
   
-  // Generate calendar data
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
   
-  // Calculate the first day of the month to align the calendar grid
-  const firstDayOfMonth = monthStart.getDay(); // 0 for Sunday, 1 for Monday, etc.
+  const firstDayOfMonth = monthStart.getDay();
   const blanks = Array.from({ length: firstDayOfMonth }, (_, i) => i);
   
   return (
@@ -422,12 +403,10 @@ const GymTracker: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-7 gap-1">
-              {/* Empty cells for days before the 1st of the month */}
               {blanks.map((_, i) => (
                 <div key={`blank-${i}`} className="h-12 rounded-md"></div>
               ))}
               
-              {/* Days of the month */}
               {monthDays.map((day) => {
                 const dateStr = format(day, "yyyy-MM-dd");
                 const userVisited = hasVisitOnDate(currentUser.id, dateStr);
