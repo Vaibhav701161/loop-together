@@ -57,9 +57,12 @@ export type PactLog = {
   note?: string;
   proofType?: ProofType;
   proofUrl?: string;
+  proofText?: string;
+  proof?: string; // Legacy support
   verifiedBy?: User["id"];
   verifiedAt?: string;
   comment?: string;
+  timestamp?: number; // Added for compatibility
 }
 
 export type Streak = {
