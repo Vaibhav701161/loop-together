@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
@@ -32,11 +31,9 @@ const Dashboard: React.FC = () => {
   const currentUser = activeUser!;
   const otherUser = users.find(u => u.id !== currentUser.id)!;
 
-  // Ensure we have valid user IDs by casting them to the expected type
   const currentUserId = currentUser.id as "user_a" | "user_b";
   const otherUserId = otherUser.id as "user_a" | "user_b";
 
-  // Shared pacts stats, logic for both users
   const getUserStats = (userId: "user_a" | "user_b") => {
     const summary = calculateSummary(userId);
     const pendingPacts = getUserPendingPacts(userId);
@@ -64,11 +61,9 @@ const Dashboard: React.FC = () => {
     setProofDialogOpen(true);
   };
 
-  // Handle success dialog close and trigger confetti
   const handleProofDialogOpenChange = (open: boolean) => {
     setProofDialogOpen(open);
     
-    // If dialog is being closed and we had a selected pact, show success animation
     if (!open && selectedPact) {
       setShowSuccessAnimation(true);
       setTimeout(() => setShowSuccessAnimation(false), 2000);
@@ -88,7 +83,6 @@ const Dashboard: React.FC = () => {
 
   const today = format(new Date(), "EEEE, MMMM do");
 
-  // Card body shared between currentUser and otherUser
   const renderUserStatsCard = (
     user: typeof currentUser,
     userStats: ReturnType<typeof getUserStats>,
@@ -137,9 +131,7 @@ const Dashboard: React.FC = () => {
           <p className="text-muted-foreground mb-6">{today}</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            {/* User stats card */}
             {renderUserStatsCard(currentUser, userStats, "border-l-couple-purple", "text-couple-purple")}
-            {/* Partner stats card */}
             {renderUserStatsCard(otherUser, otherUserStats, "border-l-couple-orange", "text-couple-orange")}
           </div>
           
@@ -197,7 +189,7 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div>
-              <StreakHeatmap userId={currentUserId} monthsToShow={2} />
+              <StreakHeatmap userId={currentUserId} />
             </div>
           </div>
           
