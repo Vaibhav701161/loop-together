@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from "recharts";
 import { format, subDays } from "date-fns";
 import StreakHeatmap from "@/components/streak/StreakHeatmap";
 
@@ -43,6 +43,7 @@ const Comparison: React.FC = () => {
   
   const currentUser = activeUser!;
   const otherUser = users.find(user => user.id !== currentUser.id)!;
+  const currentUserId = activeUser?.id as "user_a" | "user_b";
 
   const calculateStreakData = (userId: "user_a" | "user_b") => {
     return pacts.filter(pact => 
@@ -123,9 +124,6 @@ const Comparison: React.FC = () => {
       });
     }
   };
-
-  const { activeUser } = useAuth();
-  const currentUserId = activeUser?.id as "user_a" | "user_b";
 
   return (
     <Layout>
