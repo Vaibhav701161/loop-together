@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
@@ -21,7 +20,7 @@ const History: React.FC = () => {
     calculateSummary,
   } = usePacts();
   
-  const [selectedUser, setSelectedUser] = useState(activeUser?.id || "user_a");
+  const [selectedUser, setSelectedUser] = useState<"user_a" | "user_b">(activeUser?.id || "user_a");
   
   const userPacts = pacts.filter(pact => 
     pact.assignedTo === selectedUser || pact.assignedTo === "both"
@@ -29,7 +28,6 @@ const History: React.FC = () => {
   
   const userSummary = calculateSummary(selectedUser);
   
-  // Generate data for the last 7 days
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = subDays(new Date(), 6 - i);
     return format(date, "yyyy-MM-dd");
@@ -49,13 +47,11 @@ const History: React.FC = () => {
     };
   });
 
-  // Get streaks for display
   const pactStreaks = userPacts.map(pact => ({
     pact,
     streak: getPactStreak(pact.id)
   })).sort((a, b) => b.streak.current - a.streak.current);
 
-  // Get recent logs for activity feed
   const recentLogs = [...logs]
     .filter(log => log.userId === selectedUser)
     .sort((a, b) => new Date(b.completedAt || "").getTime() - new Date(a.completedAt || "").getTime())
@@ -66,8 +62,10 @@ const History: React.FC = () => {
       <div className="container mx-auto max-w-4xl">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold gradient-heading">Analytics & History</h1>
-          
-          <Select value={selectedUser} onValueChange={setSelectedUser}>
+          <Select
+            value={selectedUser}
+            onValueChange={value => setSelectedUser(value as "user_a" | "user_b")}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select person" />
             </SelectTrigger>
