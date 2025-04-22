@@ -72,3 +72,46 @@ export const fireSuccess = () => {
     }
   })();
 };
+
+// Enhanced success animation with more confetti
+export const fireBigSuccess = () => {
+  const duration = 3000;
+  const animationEnd = Date.now() + duration;
+  const colors = ['#9b87f5', '#D946EF', '#F97316', '#22c55e', '#3b82f6'];
+
+  const fireConfettiWave = () => {
+    confetti({
+      particleCount: 80,
+      angle: 130,
+      spread: 70,
+      origin: { x: 0.15, y: 0.9 },
+      colors: colors,
+      startVelocity: 45,
+      gravity: 1,
+      scalar: 1.2
+    });
+
+    confetti({
+      particleCount: 80,
+      angle: 50,
+      spread: 70,
+      origin: { x: 0.85, y: 0.9 },
+      colors: colors,
+      startVelocity: 45,
+      gravity: 1,
+      scalar: 1.2
+    });
+  };
+
+  // Fire initial burst
+  fireConfettiWave();
+
+  // Schedule subsequent bursts
+  const interval = setInterval(() => {
+    if (Date.now() > animationEnd) {
+      clearInterval(interval);
+      return;
+    }
+    fireConfettiWave();
+  }, 750);
+};

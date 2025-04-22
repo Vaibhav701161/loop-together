@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { exportAppData, importAppData } from "@/utils/dataExport";
 import { 
-  Download, Upload, Palette, Moon, Sun, CloudSync, 
+  Download, Upload, Palette, Moon, Sun, CloudCog, 
   User, UserCog, Database, RefreshCw, ArrowLeftRight
 } from "lucide-react";
 import {
@@ -215,7 +214,7 @@ const Settings: React.FC = () => {
 
                 <div className="p-4 rounded-lg border bg-muted/50">
                   <h3 className="font-medium mb-2 flex items-center">
-                    <CloudSync className="h-4 w-4 mr-2" />
+                    <CloudCog className="h-4 w-4 mr-2" />
                     Sync Options
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">

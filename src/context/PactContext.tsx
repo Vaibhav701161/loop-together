@@ -1,13 +1,27 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Pact, PactLog, Streak, User, CompletionStatus } from "@/types";
 import { useAuth } from "./AuthContext";
 import { format, isToday, parseISO, startOfDay, subDays, isPast } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
+// Define the completion type needed by various components
+export interface PactCompletion {
+  id: string;
+  pactId: string;
+  userId: string;
+  timestamp: string;
+  status: CompletionStatus;
+  note?: string;
+  proofType?: string;
+  proofUrl?: string;
+}
+
 interface PactContextType {
   pacts: Pact[];
   logs: PactLog[];
   streaks: Record<string, Streak>;
+  completions: PactCompletion[]; // Add completions property
   addPact: (pact: Omit<Pact, "id" | "createdAt">) => string;
   updatePact: (pact: Pact) => void;
   deletePact: (pactId: string) => void;
@@ -44,6 +58,7 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pacts, setPacts] = useState<Pact[]>([]);
   const [logs, setLogs] = useState<PactLog[]>([]);
   const [streaks, setStreaks] = useState<Record<string, Streak>>({});
+  const [completions, setCompletions] = useState<PactCompletion[]>([]); // Add state for completions
   const { activeUser, users } = useAuth();
   const { toast } = useToast();
 
@@ -51,6 +66,7 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const storedPacts = localStorage.getItem("2getherLoop_pacts");
     const storedLogs = localStorage.getItem("2getherLoop_pactLogs");
     const storedStreaks = localStorage.getItem("2getherLoop_streaks");
+    const storedCompletions = localStorage.getItem("2getherLoop_completions"); // Load completions from localStorage
 
     if (storedPacts) {
       setPacts(JSON.parse(storedPacts));
@@ -60,6 +76,12 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     if (storedStreaks) {
       setStreaks(JSON.parse(storedStreaks));
+    }
+    if (storedCompletions) {
+      setCompletions(JSON.parse(storedCompletions));
+    } else {
+      // Initialize with empty array if not exists
+      localStorage.setItem("2getherLoop_completions", JSON.stringify([]));
     }
   }, []);
 
@@ -74,6 +96,10 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     localStorage.setItem("2getherLoop_streaks", JSON.stringify(streaks));
   }, [streaks]);
+
+  useEffect(() => {
+    localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
+  }, [completions]);
 
   useEffect(() => {
     updateAllStreaks();
@@ -165,7 +191,32 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLogs(prev => [...prev, newLog]);
     }
     
-    if (logData.status === "failed") {
+    // Add to completions if it's a completed status
+    if (logData.status === "completed") {
+      const completionId = `comp_${Date.now().toString(36)}`;
+      const newCompletion: PactCompletion = {
+        id: completionId,
+        pactId: logData.pactId,
+        userId: logData.userId,
+        timestamp: new Date().toISOString(),
+        status: "completed",
+        note: logData.note,
+        proofType: logData.proofType,
+        proofUrl: logData.proofUrl
+      };
+      
+      setCompletions(prev => [...prev, newCompletion]);
+      
+      const pact = pacts.find(p => p.id === logData.pactId);
+      
+      if (pact && notify) {
+        toast({
+          title: "Pact Completed! 🎉",
+          description: `Your pact "${pact.title}" has been marked as completed.`,
+          duration: 5000
+        });
+      }
+    } else if (logData.status === "failed") {
       const pact = pacts.find(p => p.id === logData.pactId);
       
       if (pact) {
@@ -183,18 +234,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
             duration: 10000
           });
         }
-      }
-    }
-    
-    if (logData.status === "completed" && notify) {
-      const pact = pacts.find(p => p.id === logData.pactId);
-      
-      if (pact) {
-        toast({
-          title: "Pact Completed! 🎉",
-          description: `Your pact "${pact.title}" has been marked as completed.`,
-          duration: 5000
-        });
       }
     } else if (notify) {
       toast({
@@ -495,6 +534,7 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pacts,
       logs,
       streaks,
+      completions, // Expose completions to consumers
       addPact,
       updatePact,
       deletePact,
