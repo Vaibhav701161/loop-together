@@ -3,11 +3,12 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
 import { format, isPast, parseISO, isSameDay, addMinutes } from "date-fns";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export const useReminders = () => {
   const { activeUser } = useAuth();
   const { pacts, getPactStatus } = usePacts();
+  const { toast } = useToast();
   const [lastNotified, setLastNotified] = useState<Record<string, Date>>({});
   
   useEffect(() => {
@@ -20,7 +21,7 @@ export const useReminders = () => {
       // Get all active pacts for this user
       const userPacts = pacts.filter(pact => 
         (pact.assignedTo === activeUser.id || pact.assignedTo === "both") &&
-        getPactStatus(pact.id, activeUser.id, today) === "pending"
+        getPactStatus(pact.id, activeUser.id) === "pending"
       );
       
       userPacts.forEach(pact => {
@@ -73,7 +74,7 @@ export const useReminders = () => {
     }, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [activeUser, pacts, getPactStatus, lastNotified]);
+  }, [activeUser, pacts, getPactStatus, lastNotified, toast]);
   
   return { lastNotified };
 };

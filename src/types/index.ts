@@ -39,6 +39,7 @@ export type Pact = {
   punishment: string;
   reward: string;
   createdAt: string;
+  startDate: string; // YYYY-MM-DD
   color?: string;
   isVerified?: boolean;
   templateId?: string;
@@ -52,11 +53,10 @@ export type PactLog = {
   userId: User["id"];
   date: string; // YYYY-MM-DD
   status: CompletionStatus;
-  proof?: {
-    type: ProofType;
-    content: string; // text content or base64 image
-  };
-  completedAt?: string;
+  completedAt: string;
+  note?: string;
+  proofType?: ProofType;
+  proofUrl?: string;
   verifiedBy?: User["id"];
   verifiedAt?: string;
   comment?: string;

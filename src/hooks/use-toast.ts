@@ -1,4 +1,3 @@
-
 import * as React from "react"
 
 import type {
@@ -169,7 +168,6 @@ function toast({ ...props }: Toast) {
   }
 }
 
-// Fix: Export a proper React hook that uses useState
 export function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
@@ -189,3 +187,5 @@ export function useToast() {
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }
+
+export { toast }

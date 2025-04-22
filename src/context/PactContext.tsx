@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Pact, PactLog, User, CompletionStatus } from "@/types";
 import { v4 as uuidv4 } from 'uuid';
@@ -8,7 +9,7 @@ interface PactContextType {
   addPact: (pact: Omit<Pact, "id">) => void;
   updatePact: (pact: Pact) => void;
   deletePact: (pactId: string) => void;
-  addPactCompletion: (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt">) => void;
+  addPactCompletion: (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => void;
   getTodaysPacts: () => Pact[];
   getUserPendingPacts: (userId: "user_a" | "user_b") => Pact[];
   getUserCompletedPacts: (userId: "user_a" | "user_b") => Pact[];
@@ -19,6 +20,11 @@ interface PactContextType {
     totalPacts: number;
     totalCompleted: number;
   };
+  getPact: (pactId: string) => Pact | undefined;
+  getPactStreak: (pactId: string, userId: "user_a" | "user_b") => { current: number; longest: number; total: number };
+  logs: PactLog[];
+  isPactLost: (pactId: string, userId: "user_a" | "user_b") => boolean;
+  addPactLog: (log: Omit<PactLog, "id">) => void;
 }
 
 const PactContext = createContext<PactContextType | undefined>(undefined);
@@ -50,7 +56,12 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [completions]);
 
   const addPact = (pact: Omit<Pact, "id">) => {
-    const newPact: Pact = { id: uuidv4(), ...pact };
+    const newPact: Pact = { 
+      id: uuidv4(), 
+      ...pact,
+      createdAt: pact.createdAt || new Date().toISOString(),
+      startDate: pact.startDate || new Date().toISOString().split('T')[0]
+    };
     setPacts(prevPacts => [...prevPacts, newPact]);
   };
 
@@ -65,22 +76,29 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCompletions(prevCompletions => prevCompletions.filter(completion => completion.pactId !== pactId));
   };
 
-  // Fix the addPactCompletion function to match the expected type
-  const addPactCompletion = (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt">) => {
+  const addPactCompletion = (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => {
+    const today = new Date().toISOString().split('T')[0];
     const newCompletion: PactLog = {
       id: `compl_${Date.now()}`,
       pactId,
       userId,
+      date: today,
       completedAt: new Date().toISOString(),
       status: "completed",
-      // Make sure we're only using properties that exist on the type
-      // If these properties should exist, update the PactLog type definition
       ...(data.note ? { note: data.note } : {}),
       ...(data.proofType ? { proofType: data.proofType } : {}),
       ...(data.proofUrl ? { proofUrl: data.proofUrl } : {})
     };
 
     setCompletions(prevCompletions => [...prevCompletions, newCompletion]);
+  };
+
+  const addPactLog = (log: Omit<PactLog, "id">) => {
+    const newLog: PactLog = {
+      id: `log_${Date.now()}`,
+      ...log
+    };
+    setCompletions(prev => [...prev, newLog]);
   };
 
   const getTodaysPacts = () => {
@@ -93,25 +111,37 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getUserPendingPacts = (userId: "user_a" | "user_b") => {
     return getTodaysPacts().filter(pact => {
-      const completion = completions.find(c => c.pactId === pact.id && c.userId === userId);
+      const completion = completions.find(c => 
+        c.pactId === pact.id && 
+        c.userId === userId && 
+        c.date === new Date().toISOString().split('T')[0]
+      );
       return !completion || completion.status !== "completed";
     });
   };
 
   const getUserCompletedPacts = (userId: "user_a" | "user_b") => {
     return getTodaysPacts().filter(pact => {
-      const completion = completions.find(c => c.pactId === pact.id && c.userId === userId);
+      const completion = completions.find(c => 
+        c.pactId === pact.id && 
+        c.userId === userId && 
+        c.date === new Date().toISOString().split('T')[0]
+      );
       return completion && completion.status === "completed";
     });
   };
 
-  // Fix the comparison for status checks (they should be checking against "completed" not another status)
   const getPactStatus = (pactId: string, userId: "user_a" | "user_b"): CompletionStatus => {
-    const pactCompletions = completions.filter(c => c.pactId === pactId && c.userId === userId);
+    const today = new Date().toISOString().split('T')[0];
+    const pactCompletions = completions.filter(c => 
+      c.pactId === pactId && 
+      c.userId === userId && 
+      c.date === today
+    );
     
     if (pactCompletions.length > 0) {
       // Return the status of the most recent completion
-      return pactCompletions[0].status;
+      return pactCompletions[pactCompletions.length - 1].status;
     }
     
     // If no completions found, check if pact is overdue
@@ -128,6 +158,67 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     return "pending";
+  };
+
+  const isPactLost = (pactId: string, userId: "user_a" | "user_b"): boolean => {
+    return getPactStatus(pactId, userId) === "failed";
+  };
+
+  const getPact = (pactId: string): Pact | undefined => {
+    return pacts.find(p => p.id === pactId);
+  };
+
+  const getPactStreak = (pactId: string, userId: "user_a" | "user_b") => {
+    const pactCompletions = completions
+      .filter(c => c.pactId === pactId && c.userId === userId && c.status === "completed")
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    let current = 0;
+    let longest = 0;
+    let tempStreak = 0;
+    let lastDate: Date | null = null;
+    
+    for (const completion of pactCompletions) {
+      const completionDate = new Date(completion.date);
+      
+      if (lastDate) {
+        const dayDiff = Math.floor((lastDate.getTime() - completionDate.getTime()) / (1000 * 3600 * 24));
+        
+        if (dayDiff === 1) {
+          tempStreak++;
+        } else {
+          longest = Math.max(longest, tempStreak);
+          tempStreak = 1;
+        }
+      } else {
+        tempStreak = 1;
+      }
+      
+      lastDate = completionDate;
+    }
+    
+    longest = Math.max(longest, tempStreak);
+    
+    // Calculate current streak
+    if (pactCompletions.length > 0) {
+      const lastCompletionDate = new Date(pactCompletions[0].date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      if (lastCompletionDate.toDateString() === today.toDateString() || 
+          lastCompletionDate.toDateString() === yesterday.toDateString()) {
+        current = tempStreak;
+      }
+    }
+    
+    return { 
+      current, 
+      longest, 
+      total: pactCompletions.length 
+    };
   };
 
   const calculateSummary = (userId: "user_a" | "user_b") => {
@@ -189,6 +280,11 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getUserCompletedPacts,
       getPactStatus,
       calculateSummary,
+      getPact,
+      getPactStreak,
+      logs: completions,
+      isPactLost,
+      addPactLog
     }}>
       {children}
     </PactContext.Provider>
