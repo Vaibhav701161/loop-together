@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils";
 const MediaGallery: React.FC = () => {
   const [activeTab, setActiveTab] = useState("images");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterUser, setFilterUser] = useState<string>("");
-  const [filterPact, setFilterPact] = useState<string>("");
+  const [filterUser, setFilterUser] = useState<string>("all");
+  const [filterPact, setFilterPact] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
@@ -53,10 +53,10 @@ const MediaGallery: React.FC = () => {
         (item.note && item.note.toLowerCase().includes(searchTerm.toLowerCase()));
       
       // Check user filter
-      const userMatch = !filterUser || item.userId === filterUser;
+      const userMatch = filterUser === "all" || item.userId === filterUser;
       
       // Check pact filter
-      const pactMatch = !filterPact || item.pactId === filterPact;
+      const pactMatch = filterPact === "all" || item.pactId === filterPact;
       
       // Check date filter
       const dateMatch = !selectedDate || 
@@ -68,8 +68,8 @@ const MediaGallery: React.FC = () => {
 
   const clearFilters = () => {
     setSearchTerm("");
-    setFilterUser("");
-    setFilterPact("");
+    setFilterUser("all");
+    setFilterPact("all");
     setSelectedDate(undefined);
   };
 
@@ -122,7 +122,7 @@ const MediaGallery: React.FC = () => {
                 <SelectValue placeholder="Filter by user" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Users</SelectItem>
+                <SelectItem value="all">All Users</SelectItem>
                 {users.map(user => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.name}
@@ -136,7 +136,7 @@ const MediaGallery: React.FC = () => {
                 <SelectValue placeholder="Filter by pact" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Pacts</SelectItem>
+                <SelectItem value="all">All Pacts</SelectItem>
                 {pacts.map(pact => (
                   <SelectItem key={pact.id} value={pact.id}>
                     {pact.title}

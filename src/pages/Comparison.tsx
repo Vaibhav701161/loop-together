@@ -18,6 +18,7 @@ import {
   Dumbbell, 
   PartyPopper 
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Comparison: React.FC = () => {
   const { activeUser, users } = useAuth();
@@ -132,6 +133,22 @@ const Comparison: React.FC = () => {
     ? Math.round((user2WeeklyCompleted / user2WeeklyTotal) * 100) 
     : 0;
   
+  const toast = useToast();
+
+  const handleReset = () => {
+    toast({
+      title: "Stats Reset",
+      description: "Comparison stats have been reset for this period."
+    });
+  };
+
+  const handleSave = () => {
+    toast({
+      title: "Stats Saved",
+      description: "Comparison data saved successfully."
+    });
+  };
+
   return (
     <Layout>
       <div className="container mx-auto max-w-4xl px-4 py-6">

@@ -1,250 +1,210 @@
 
 import React, { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Pact } from "@/types";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { usePacts } from "@/context/PactContext";
 import { useAuth } from "@/context/AuthContext";
-import { format, parseISO } from "date-fns";
-import { Image, X, Check, Camera } from "lucide-react";
-import confetti from 'canvas-confetti';
+import { ProofType } from "@/types";
+import { ImagePlus, Check, X } from "lucide-react";
+import SuccessAnimation from "./SuccessAnimation";
 
 interface ProofDialogProps {
-  pact: Pact;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  pactId: string;
+  date: string;
+  proofType: ProofType;
+  onComplete: () => void;
 }
 
-const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) => {
-  const { addPactLog, getPactStatus, isPactLost } = usePacts();
-  const { activeUser, users } = useAuth();
+const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onComplete }) => {
+  const [open, setOpen] = useState(false);
   const [textProof, setTextProof] = useState("");
-  const [isChecked, setIsChecked] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [comment, setComment] = useState("");
+  const [imageProof, setImageProof] = useState<string>("");
+  const [success, setSuccess] = useState(false);
+  const { toast } = useToast();
+  const { addCompletion, addLog } = usePacts();
+  const { activeUser } = useAuth();
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  // Add nullish coalescing to ensure a valid string is always used
-  const isPactAlreadyCompleted = activeUser?.id ? getPactStatus(pact.id, activeUser.id, today) === "completed" : false;
-  const pactLost = activeUser?.id ? isPactLost(pact.id, activeUser.id) : false;
+  const handleComplete = () => {
+    if (proofType === "text" && !textProof.trim()) {
+      toast({
+        title: "Proof Required",
+        description: "Please provide a text description of your completed task."
+      });
+      return;
+    }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (proofType === "image" && !imageProof) {
+      toast({
+        title: "Proof Required",
+        description: "Please upload an image as proof of completion."
+      });
+      return;
+    }
+
+    // Add the completion proof
+    let proofData = "";
+    
+    if (proofType === "text") {
+      proofData = textProof;
+    } else if (proofType === "image") {
+      proofData = imageProof;
+    }
+    
+    addCompletion({
+      pactId,
+      userId: activeUser?.id || "user_a",
+      completedAt: date,
+      proofType,
+      proofUrl: proofData,
+      note: textProof
+    });
+
+    // Add a log entry
+    addLog({
+      pactId,
+      userId: activeUser?.id || "user_a",
+      completedAt: date,
+      status: "completed",
+      comment: textProof
+    });
+
+    setSuccess(true);
+    
+    // Close after animation
+    setTimeout(() => {
+      setOpen(false);
+      setSuccess(false);
+      onComplete();
+    }, 2000);
+  };
+
+  const handleFailure = () => {
+    addLog({
+      pactId,
+      userId: activeUser?.id || "user_a",
+      completedAt: date,
+      status: "failed",
+      comment: textProof
+    });
+    
+    setOpen(false);
+    toast({
+      title: "Marked as Failed",
+      description: "You've logged this task as incomplete."
+    });
+    onComplete();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-      setIsUploading(false);
-    };
-    reader.readAsDataURL(file);
+    // For simplicity in this demo, we're just storing the filename
+    // In a real app, you would upload to a service and store the URL
+    setImageProof(URL.createObjectURL(file));
   };
-
-  const triggerConfetti = () => {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-  };
-
-  const handleSubmit = () => {
-    if (!activeUser) return;
-
-    let proofContent = "";
-    
-    switch (pact.proofType) {
-      case "text":
-        proofContent = textProof;
-        break;
-      case "checkbox":
-        proofContent = isChecked ? "completed" : "";
-        break;
-      case "image":
-        proofContent = imagePreview || "";
-        break;
-    }
-
-    addPactLog({
-      pactId: pact.id,
-      userId: activeUser.id,
-      date: today,
-      status: "completed",
-      proof: {
-        type: pact.proofType,
-        content: proofContent
-      },
-      comment: comment
-    });
-
-    triggerConfetti();
-
-    setTextProof("");
-    setIsChecked(false);
-    setImagePreview(null);
-    setComment("");
-    onOpenChange(false);
-  };
-
-  const handleFail = () => {
-    if (!activeUser) return;
-
-    addPactLog({
-      pactId: pact.id,
-      userId: activeUser.id,
-      date: today,
-      status: "failed",
-      comment: comment
-    });
-
-    setTextProof("");
-    setIsChecked(false);
-    setImagePreview(null);
-    setComment("");
-    onOpenChange(false);
-  };
-
-  const otherUser = users.find(u => u.id !== activeUser?.id);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{pact.title}</DialogTitle>
-          <DialogDescription>
-            {pact.description || "Complete this pact by providing proof below."}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="py-4 space-y-4">
-          {isPactAlreadyCompleted ? (
-            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md text-center">
-              <Check className="mx-auto h-8 w-8 text-green-500 mb-2" />
-              <p className="text-green-700 dark:text-green-300 font-medium">
-                You've already completed this pact today!
-              </p>
-              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                Good job keeping your streak going!
-              </p>
-            </div>
-          ) : pactLost ? (
-            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-md text-center">
-              <X className="mx-auto h-8 w-8 text-red-500 mb-2" />
-              <p className="text-red-700 dark:text-red-300 font-medium">
-                You've lost this pact!
-              </p>
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {pact.punishment || "Time to face the consequences."}
-              </p>
-            </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          {proofType === "checkbox" ? (
+            <span className="flex items-center">
+              <Check className="mr-1 h-4 w-4" /> Mark Complete
+            </span>
           ) : (
-            <>
-              {pact.proofType === "text" && (
+            <span className="flex items-center">
+              <ImagePlus className="mr-1 h-4 w-4" /> Add Proof
+            </span>
+          )}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        {success ? (
+          <SuccessAnimation />
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Complete Task</DialogTitle>
+              <DialogDescription>
+                {proofType === "checkbox" 
+                  ? "Mark this task as completed." 
+                  : "Provide proof that you've completed this task."}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              {proofType === "text" && (
                 <div className="grid gap-2">
-                  <Label htmlFor="text-proof">Provide text proof</Label>
-                  <Textarea
-                    id="text-proof"
+                  <Label htmlFor="proof">Describe how you completed this task</Label>
+                  <Textarea 
+                    id="proof" 
+                    placeholder="e.g., I went to the gym and did a full workout routine..."
                     value={textProof}
                     onChange={(e) => setTextProof(e.target.value)}
-                    placeholder="Describe how you completed this task..."
-                    className="min-h-[100px]"
                   />
                 </div>
               )}
-
-              {pact.proofType === "checkbox" && (
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="check-proof" 
-                    checked={isChecked} 
-                    onCheckedChange={(checked) => setIsChecked(checked === true)}
-                  />
-                  <Label htmlFor="check-proof">I confirm that I have completed this task</Label>
-                </div>
-              )}
-
-              {pact.proofType === "image" && (
+              
+              {proofType === "image" && (
                 <div className="grid gap-4">
-                  <Label htmlFor="image-proof" className="flex items-center gap-2">
-                    <Image className="h-4 w-4" /> Upload proof image
-                  </Label>
-                  
-                  <div className="grid gap-2">
-                    <Input
-                      id="image-proof"
-                      type="file"
+                  <Label htmlFor="image">Upload an image as proof</Label>
+                  <div className="flex flex-col items-center gap-2">
+                    <Input 
+                      id="image" 
+                      type="file" 
                       accept="image/*"
-                      onChange={handleImageUpload}
-                      className="file:bg-primary file:text-primary-foreground file:border-0 file:rounded file:px-2 file:py-1 file:mr-2 hover:file:bg-primary/90"
+                      onChange={handleFileChange}
                     />
                     
-                    {isUploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
-                    
-                    {imagePreview && (
-                      <div className="mt-2">
-                        <div className="relative border rounded-md overflow-hidden">
-                          <img 
-                            src={imagePreview} 
-                            alt="Proof preview" 
-                            className="max-h-[200px] w-full object-contain mx-auto"
-                          />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-2 py-1">
-                            {format(new Date(), "PPp")}
-                          </div>
-                        </div>
+                    {imageProof && (
+                      <div className="mt-2 relative w-full aspect-video bg-muted rounded-md overflow-hidden">
+                        <img 
+                          src={imageProof} 
+                          alt="Proof" 
+                          className="object-cover w-full h-full"
+                        />
                       </div>
                     )}
                   </div>
+                  
+                  <Textarea 
+                    placeholder="Optional: Add a note about your completion"
+                    value={textProof}
+                    onChange={(e) => setTextProof(e.target.value)}
+                  />
                 </div>
               )}
-
-              <div className="grid gap-2">
-                <Label htmlFor="comment">Additional comment (optional)</Label>
-                <Textarea
-                  id="comment"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Add any additional information..."
-                  className="min-h-[60px]"
-                />
-              </div>
-            </>
-          )}
-        </div>
-
-        <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          {!isPactAlreadyCompleted && !pactLost && (
-            <>
-              <Button variant="outline" onClick={handleFail} className="sm:w-1/2">
-                Failed Today
+              
+              {proofType === "checkbox" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="note">Optional: Add a note</Label>
+                  <Textarea 
+                    id="note" 
+                    placeholder="e.g., Completed with extra effort today!"
+                    value={textProof}
+                    onChange={(e) => setTextProof(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+            
+            <DialogFooter className="flex flex-row justify-between sm:justify-between">
+              <Button variant="outline" onClick={handleFailure} type="button">
+                <X className="mr-2 h-4 w-4" />
+                Mark Failed
               </Button>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={
-                  (pact.proofType === "text" && !textProof) ||
-                  (pact.proofType === "checkbox" && !isChecked) ||
-                  (pact.proofType === "image" && !imagePreview) ||
-                  isUploading
-                }
-                className="sm:w-1/2"
-              >
+              <Button onClick={handleComplete} type="button">
+                <Check className="mr-2 h-4 w-4" />
                 Complete
               </Button>
-            </>
-          )}
-          {(isPactAlreadyCompleted || pactLost) && (
-            <Button onClick={() => onOpenChange(false)} className="w-full">
-              Close
-            </Button>
-          )}
-        </DialogFooter>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

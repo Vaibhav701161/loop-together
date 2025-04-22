@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Milestone } from "@/types";
 import { format } from "date-fns";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Trophy, Award, Check, Plus, PartyPopper, Gift, Target } from "lucide-react";
 import confetti from 'canvas-confetti';
 
@@ -161,6 +162,8 @@ const Milestones: React.FC = () => {
   const [pactType, setPactType] = useState<string>("any");
   const [targetDays, setTargetDays] = useState<number>(7);
   const [reward, setReward] = useState("");
+  
+  const { toast } = useToast();
   
   const currentUser = activeUser!;
   const otherUser = users.find(user => user.id !== currentUser.id)!;

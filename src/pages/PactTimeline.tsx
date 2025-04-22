@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +19,7 @@ import {
   differenceInDays 
 } from "date-fns";
 import { BookOpen, Calendar, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const PactTimeline: React.FC = () => {
   const { activeUser, users } = useAuth();
@@ -36,15 +36,11 @@ const PactTimeline: React.FC = () => {
   const currentUser = activeUser!;
   const otherUser = users.find(user => user.id !== currentUser.id)!;
   
-  // Get all days in the selected timeframe
   const today = new Date();
   const startDate = subDays(today, parseInt(selectedTimeframe));
   const daysInTimeframe = eachDayOfInterval({ start: startDate, end: today });
-  
-  // Reverse so newest is first
   const daysToShow = [...daysInTimeframe].reverse();
   
-  // Get filtered logs for each day
   const getLogsForDay = (date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     
@@ -54,7 +50,6 @@ const PactTimeline: React.FC = () => {
       
       return true;
     }).sort((a, b) => {
-      // Sort by completion status (completed first, then failed, then pending)
       if (a.status !== b.status) {
         if (a.status === "completed") return -1;
         if (b.status === "completed") return 1;
@@ -62,7 +57,6 @@ const PactTimeline: React.FC = () => {
         if (b.status === "failed") return 1;
       }
       
-      // If status is the same, sort by completedAt time
       if (a.completedAt && b.completedAt) {
         return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
       }
@@ -71,14 +65,12 @@ const PactTimeline: React.FC = () => {
     });
   };
   
-  // Format the date for display
   const formatDate = (date: Date) => {
     if (isToday(date)) return "Today";
     if (isYesterday(date)) return "Yesterday";
     return format(date, "EEEE, MMMM d");
   };
   
-  // Group days by week for weekly view
   const weeks = daysToShow.reduce((acc, day) => {
     const weekStartDate = startOfWeek(day, { weekStartsOn: 1 });
     const weekEndDate = endOfWeek(day, { weekStartsOn: 1 });
@@ -92,12 +84,10 @@ const PactTimeline: React.FC = () => {
     return acc;
   }, {} as Record<string, Date[]>);
   
-  // Get user name by ID
   const getUserName = (userId: string) => {
     return users.find(user => user.id === userId)?.name || userId;
   };
   
-  // Get status badge
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
@@ -109,7 +99,24 @@ const PactTimeline: React.FC = () => {
     }
   };
   
-  // Render timeline logs for a day
+  const renderProof = (proof: string) => {
+    if (!proof) return null;
+    
+    if (proof.startsWith('http') || proof.startsWith('blob:') || proof.startsWith('data:image')) {
+      return (
+        <div className="mt-2 relative w-full aspect-video bg-muted rounded-md overflow-hidden">
+          <img src={proof} alt="Proof" className="object-cover w-full h-full" />
+        </div>
+      );
+    }
+    
+    return (
+      <div className="mt-2 bg-muted/30 p-3 rounded-md text-sm">
+        {proof}
+      </div>
+    );
+  };
+  
   const renderTimelineLogs = (date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
     const logsForDay = getLogsForDay(date);
@@ -160,20 +167,7 @@ const PactTimeline: React.FC = () => {
                       
                       {log.proof && (
                         <div className="mt-2">
-                          {log.proof.type === "text" && (
-                            <div className="bg-muted/30 p-2 rounded text-sm mt-1">
-                              {log.proof.content}
-                            </div>
-                          )}
-                          {log.proof.type === "image" && log.proof.content && (
-                            <div className="mt-1 border rounded-md overflow-hidden">
-                              <img 
-                                src={log.proof.content} 
-                                alt="Proof" 
-                                className="max-h-[150px] w-full object-contain" 
-                              />
-                            </div>
-                          )}
+                          {renderProof(log.proof.content)}
                         </div>
                       )}
                       

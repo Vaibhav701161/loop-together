@@ -8,6 +8,7 @@ import { format, parseISO, subDays } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 const History: React.FC = () => {
   const { activeUser, users } = useAuth();
@@ -56,6 +57,16 @@ const History: React.FC = () => {
     .filter(log => log.userId === selectedUser)
     .sort((a, b) => new Date(b.completedAt || "").getTime() - new Date(a.completedAt || "").getTime())
     .slice(0, 10);
+
+  const { toast } = useToast();
+
+  const handleDelete = (logId: string) => {
+    deleteLog(logId);
+    toast({
+      title: "Log Deleted",
+      description: "The activity log has been removed."
+    });
+  };
 
   return (
     <Layout>
