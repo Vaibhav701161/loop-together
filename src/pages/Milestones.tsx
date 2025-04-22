@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -20,7 +21,6 @@ import confetti from 'canvas-confetti';
 const useMilestones = () => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const { pacts, logs, getPactStreak } = usePacts();
-  const { toast } = useToast();
   
   useEffect(() => {
     const storedMilestones = localStorage.getItem("2getherLoop_milestones");
@@ -110,7 +110,7 @@ const useMilestones = () => {
     });
     
     setMilestones(updatedMilestones);
-  }, [pacts, logs, getPactStreak, toast]);
+  }, [pacts, logs, getPactStreak]);
   
   const addMilestone = (milestoneData: Omit<Milestone, "id" | "createdAt" | "progress" | "isCompleted">) => {
     const id = `milestone_${Date.now().toString(36)}`;

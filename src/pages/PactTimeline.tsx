@@ -99,7 +99,7 @@ const PactTimeline: React.FC = () => {
     }
   };
   
-  const renderProof = (proof: string | undefined) => {
+  const renderProof = (proof: string) => {
     if (!proof) return null;
     
     if (proof.startsWith('http') || proof.startsWith('blob:') || proof.startsWith('data:image')) {
@@ -165,9 +165,9 @@ const PactTimeline: React.FC = () => {
                         {log.completedAt ? ` ${format(parseISO(log.completedAt), "h:mm a")}` : ""}
                       </p>
                       
-                      {log.proofUrl && (
+                      {log.proof && (
                         <div className="mt-2">
-                          {renderProof(log.proofUrl)}
+                          {renderProof(log.proof.content)}
                         </div>
                       )}
                       

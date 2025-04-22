@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { usePacts } from "@/context/PactContext";
 import { useAuth } from "@/context/AuthContext";
-import { ProofType, Pact } from "@/types";
+import { ProofType } from "@/types";
 import { ImagePlus, Check, X } from "lucide-react";
 import SuccessAnimation from "./SuccessAnimation";
 
@@ -19,21 +19,13 @@ interface ProofDialogProps {
   onComplete: () => void;
 }
 
-const ProofDialog: React.FC<ProofDialogProps & { open?: boolean; onOpenChange?: (open: boolean) => void; pact?: Pact }> = ({ 
-  pactId, 
-  date, 
-  proofType, 
-  onComplete,
-  open: externalOpen,
-  onOpenChange: externalOnOpenChange,
-  pact
-}) => {
+const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onComplete }) => {
   const [open, setOpen] = useState(false);
   const [textProof, setTextProof] = useState("");
   const [imageProof, setImageProof] = useState<string>("");
   const [success, setSuccess] = useState(false);
   const { toast } = useToast();
-  const { addPactCompletion, addPactLog } = usePacts();
+  const { addCompletion, addLog } = usePacts();
   const { activeUser } = useAuth();
 
   const handleComplete = () => {
@@ -62,23 +54,21 @@ const ProofDialog: React.FC<ProofDialogProps & { open?: boolean; onOpenChange?: 
       proofData = imageProof;
     }
     
-    // Fix the addPactCompletion call to include all required parameters
-    addPactCompletion(pactId, activeUser?.id || "user_a", {
+    addCompletion({
       pactId,
       userId: activeUser?.id || "user_a",
-      status: "completed",
+      completedAt: date,
       proofType,
       proofUrl: proofData,
       note: textProof
     });
 
     // Add a log entry
-    addPactLog({
+    addLog({
       pactId,
       userId: activeUser?.id || "user_a",
-      date,
+      completedAt: date,
       status: "completed",
-      completedAt: new Date().toISOString(),
       comment: textProof
     });
 
@@ -86,32 +76,22 @@ const ProofDialog: React.FC<ProofDialogProps & { open?: boolean; onOpenChange?: 
     
     // Close after animation
     setTimeout(() => {
-      if (externalOnOpenChange) {
-        externalOnOpenChange(false);
-      } else {
-        setOpen(false);
-      }
+      setOpen(false);
       setSuccess(false);
       onComplete();
     }, 2000);
   };
 
   const handleFailure = () => {
-    addPactLog({
+    addLog({
       pactId,
       userId: activeUser?.id || "user_a",
-      date,
+      completedAt: date,
       status: "failed",
-      completedAt: new Date().toISOString(),
       comment: textProof
     });
     
-    if (externalOnOpenChange) {
-      externalOnOpenChange(false);
-    } else {
-      setOpen(false);
-    }
-    
+    setOpen(false);
     toast({
       title: "Marked as Failed",
       description: "You've logged this task as incomplete."
@@ -128,12 +108,8 @@ const ProofDialog: React.FC<ProofDialogProps & { open?: boolean; onOpenChange?: 
     setImageProof(URL.createObjectURL(file));
   };
 
-  // If external open state is provided, use it instead of internal state
-  const dialogOpen = externalOpen !== undefined ? externalOpen : open;
-  const setDialogOpen = externalOnOpenChange || setOpen;
-
   return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           {proofType === "checkbox" ? (
@@ -149,9 +125,7 @@ const ProofDialog: React.FC<ProofDialogProps & { open?: boolean; onOpenChange?: 
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         {success ? (
-          <SuccessAnimation show={true}>
-            <div>Task completed successfully!</div>
-          </SuccessAnimation>
+          <SuccessAnimation />
         ) : (
           <>
             <DialogHeader>
