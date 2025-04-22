@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -28,8 +29,9 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pact, open, onOpenChange }) =
   const [comment, setComment] = useState("");
 
   const today = format(new Date(), "yyyy-MM-dd");
-  const isPactAlreadyCompleted = getPactStatus(pact.id, activeUser?.id || "", today) === "completed";
-  const pactLost = isPactLost(pact.id, activeUser?.id || "");
+  // Add nullish coalescing to ensure a valid string is always used
+  const isPactAlreadyCompleted = activeUser?.id ? getPactStatus(pact.id, activeUser.id, today) === "completed" : false;
+  const pactLost = activeUser?.id ? isPactLost(pact.id, activeUser.id) : false;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

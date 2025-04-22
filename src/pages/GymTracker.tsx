@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { GymVisit } from "@/types";
+import { GymVisit, User } from "@/types";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, addMonths, isToday } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { Dumbbell, Calendar, Trophy, ChevronLeft, ChevronRight } from "lucide-react";
@@ -25,7 +26,7 @@ const useGymVisits = () => {
     localStorage.setItem("2getherLoop_gymVisits", JSON.stringify(visits));
   }, [visits]);
   
-  const addVisit = (userId: string, comment?: string) => {
+  const addVisit = (userId: User["id"], comment?: string) => {
     const today = format(new Date(), "yyyy-MM-dd");
     
     const existingVisit = visits.find(
@@ -189,7 +190,18 @@ const GymTracker: React.FC = () => {
   const [comment, setComment] = useState("");
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   
-  const currentUser = activeUser!;
+  // Ensure we have a valid user before using
+  if (!activeUser) {
+    return (
+      <Layout>
+        <div className="container mx-auto max-w-4xl px-4 py-6">
+          <p>Please log in to access the Gym Tracker.</p>
+        </div>
+      </Layout>
+    );
+  }
+  
+  const currentUser = activeUser;
   const otherUser = users.find(user => user.id !== currentUser.id)!;
   
   const currentUserStreak = getCurrentStreak(currentUser.id);
@@ -200,6 +212,8 @@ const GymTracker: React.FC = () => {
   const otherUserMonthlyVisits = getMonthlyVisitCount(otherUser.id, currentMonth);
   
   useEffect(() => {
+    if (!currentUser) return;
+    
     const today = format(new Date(), "yyyy-MM-dd");
     const hasVisit = hasVisitOnDate(currentUser.id, today);
     
