@@ -79,10 +79,10 @@ const AppRoutes = () => {
   
   return (
     <Routes>
-      <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />} />
       
       {/* Protected routes */}
-      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/create" element={<ProtectedRoute><CreatePact /></ProtectedRoute>} />
       <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
       <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
@@ -94,6 +94,9 @@ const AppRoutes = () => {
       <Route path="/milestones" element={<ProtectedRoute><Milestones /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/gallery" element={<ProtectedRoute><MediaGallery /></ProtectedRoute>} />
+      
+      {/* Root path redirects based on login status */}
+      <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
       
       {/* Catch-all route */}
       <Route path="*" element={<NotFound />} />

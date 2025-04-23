@@ -9,9 +9,9 @@ const Index = () => {
   
   useEffect(() => {
     if (isLoggedIn) {
-      navigate("/");
+      navigate("/dashboard", { replace: true });
     } else {
-      navigate("/login");
+      navigate("/login", { replace: true });
     }
   }, [isLoggedIn, navigate]);
   
