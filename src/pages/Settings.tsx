@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +25,6 @@ const Settings = () => {
   const [partnerUser, setPartnerUser] = useState(users.find(u => u.id === "user_b") || users[1]);
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('offline');
   
-  // Toggle dark mode
   const handleDarkModeToggle = () => {
     const newMode = !darkMode;
     setDarkMode(newMode);
@@ -45,7 +43,6 @@ const Settings = () => {
     });
   };
 
-  // Initialize Supabase connection status check
   useEffect(() => {
     const checkConnection = async () => {
       try {
@@ -65,14 +62,12 @@ const Settings = () => {
     
     checkConnection();
     
-    // Check for existing Supabase config in localStorage
     const storedSupabaseUrl = localStorage.getItem("VITE_SUPABASE_URL");
     const storedSupabaseAnonKey = localStorage.getItem("VITE_SUPABASE_ANON_KEY");
     
     if (storedSupabaseUrl) setSupabaseUrl(storedSupabaseUrl);
     if (storedSupabaseAnonKey) setSupabaseAnonKey(storedSupabaseAnonKey);
     
-    // Update user state based on current active user
     if (activeUser) {
       if (activeUser.id === "user_a") {
         setCurrentUser(users.find(u => u.id === "user_a") || users[0]);
@@ -104,7 +99,6 @@ const Settings = () => {
   };
 
   const saveSupabaseConfig = () => {
-    // Store in localStorage for the current session
     localStorage.setItem("VITE_SUPABASE_URL", supabaseUrl);
     localStorage.setItem("VITE_SUPABASE_ANON_KEY", supabaseAnonKey);
     
@@ -113,10 +107,8 @@ const Settings = () => {
       description: "Please reload the application for changes to take effect.",
     });
     
-    // Set a flag to reload
     localStorage.setItem("2getherLoop_reload_needed", "true");
     
-    // Prompt the user to reload
     setTimeout(() => {
       if (confirm("The application needs to reload to apply Supabase settings. Reload now?")) {
         window.location.reload();
@@ -136,10 +128,8 @@ const Settings = () => {
       variant: "destructive"
     });
     
-    // Set a flag to reload
     localStorage.setItem("2getherLoop_reload_needed", "true");
     
-    // Prompt the user to reload
     setTimeout(() => {
       if (confirm("The application needs to reload to apply changes. Reload now?")) {
         window.location.reload();
@@ -148,7 +138,6 @@ const Settings = () => {
   };
 
   const generateCoupleCode = () => {
-    // Generate a random 6-character code
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     localStorage.setItem("2getherLoop_couple_code", code);
     
@@ -159,8 +148,6 @@ const Settings = () => {
   };
 
   const connectWithPartnerCode = (code: string) => {
-    // In a real app, this would validate against Supabase
-    // For now, we'll just pretend it worked
     toast({
       title: "Connected with Partner",
       description: "Successfully connected with your partner's account."
