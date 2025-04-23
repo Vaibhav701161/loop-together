@@ -1,7 +1,8 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, CloudOff, AlertCircle, Loader2 } from "lucide-react";
+import { hasValidSupabaseCredentials, checkSupabaseConnection } from "@/lib/supabase";
 
 interface ConnectionStatusProps {
   status: 'connected' | 'disconnected' | 'checking' | 'unconfigured';
