@@ -10,7 +10,8 @@ interface PactContextType {
   addPact: (pact: Omit<Pact, "id">) => void;
   updatePact: (pact: Pact) => void;
   deletePact: (pactId: string) => void;
-  addPactCompletion: (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => void;
+  addPactCompletion: (data: any) => void;
+  addPactLog: (log: Omit<PactLog, "id">) => void;
   getTodaysPacts: () => Pact[];
   getUserPendingPacts: (userId: "user_a" | "user_b") => Pact[];
   getUserCompletedPacts: (userId: "user_a" | "user_b") => Pact[];
@@ -25,7 +26,6 @@ interface PactContextType {
   getPactStreak: (pactId: string, userId: "user_a" | "user_b") => { current: number; longest: number; total: number };
   logs: PactLog[];
   isPactLost: (pactId: string, userId: "user_a" | "user_b") => boolean;
-  addPactLog: (log: Omit<PactLog, "id">) => void;
   isLoading: boolean;
   isError: boolean;
   isConfigured: boolean;
@@ -53,7 +53,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadData = async () => {
       setIsLoading(true);
       
-      // Check if Supabase is configured
       if (!hasValidSupabaseCredentials()) {
         setIsConfigured(false);
         loadFromLocalStorage();
@@ -242,14 +241,13 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addPactCompletion = async (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => {
-    const today = new Date().toISOString().split('T')[0];
+  const addPactCompletion = async (data: any) => {
     const newCompletion: PactLog = {
       id: `compl_${Date.now()}`,
-      pactId,
-      userId,
-      date: today,
-      completedAt: new Date().toISOString(),
+      pactId: data.pactId,
+      userId: data.userId,
+      date: data.date || new Date().toISOString().split('T')[0],
+      completedAt: data.completedAt || new Date().toISOString(),
       status: "completed",
       ...(data.note ? { note: data.note } : {}),
       ...(data.proofType ? { proofType: data.proofType } : {}),

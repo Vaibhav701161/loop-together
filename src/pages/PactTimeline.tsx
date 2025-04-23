@@ -99,22 +99,26 @@ const PactTimeline: React.FC = () => {
     }
   };
   
-  const renderProof = (proof: string) => {
+  const renderProof = (proof: string | undefined) => {
     if (!proof) return null;
     
-    if (proof.startsWith('http') || proof.startsWith('blob:') || proof.startsWith('data:image')) {
+    if (typeof proof === 'string') {
+      if (proof.startsWith('http') || proof.startsWith('blob:') || proof.startsWith('data:image')) {
+        return (
+          <div className="mt-2 relative w-full aspect-video bg-muted rounded-md overflow-hidden">
+            <img src={proof} alt="Proof" className="object-cover w-full h-full" />
+          </div>
+        );
+      }
+      
       return (
-        <div className="mt-2 relative w-full aspect-video bg-muted rounded-md overflow-hidden">
-          <img src={proof} alt="Proof" className="object-cover w-full h-full" />
+        <div className="mt-2 bg-muted/30 p-3 rounded-md text-sm">
+          {proof}
         </div>
       );
     }
     
-    return (
-      <div className="mt-2 bg-muted/30 p-3 rounded-md text-sm">
-        {proof}
-      </div>
-    );
+    return null;
   };
   
   const renderTimelineLogs = (date: Date) => {

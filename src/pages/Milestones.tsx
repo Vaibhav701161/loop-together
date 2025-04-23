@@ -21,6 +21,7 @@ import confetti from 'canvas-confetti';
 const useMilestones = () => {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const { pacts, logs, getPactStreak } = usePacts();
+  const { toast } = useToast();
   
   useEffect(() => {
     const storedMilestones = localStorage.getItem("2getherLoop_milestones");
@@ -47,7 +48,7 @@ const useMilestones = () => {
         
         if (gymPacts.length > 0) {
           currentProgress = gymPacts.reduce((total, pact) => {
-            const streak = getPactStreak(pact.id);
+            const streak = getPactStreak(pact.id, "user_a");
             return total + streak.current;
           }, 0);
         }
@@ -61,7 +62,7 @@ const useMilestones = () => {
         
         if (studyPacts.length > 0) {
           currentProgress = studyPacts.reduce((total, pact) => {
-            const streak = getPactStreak(pact.id);
+            const streak = getPactStreak(pact.id, "user_a");
             return total + streak.current;
           }, 0);
         }
@@ -77,7 +78,7 @@ const useMilestones = () => {
         
         if (dietPacts.length > 0) {
           currentProgress = dietPacts.reduce((total, pact) => {
-            const streak = getPactStreak(pact.id);
+            const streak = getPactStreak(pact.id, "user_a");
             return total + streak.current;
           }, 0);
         }
@@ -110,7 +111,7 @@ const useMilestones = () => {
     });
     
     setMilestones(updatedMilestones);
-  }, [pacts, logs, getPactStreak]);
+  }, [pacts, logs, getPactStreak, toast]);
   
   const addMilestone = (milestoneData: Omit<Milestone, "id" | "createdAt" | "progress" | "isCompleted">) => {
     const id = `milestone_${Date.now().toString(36)}`;
@@ -166,7 +167,7 @@ const Milestones: React.FC = () => {
   const { toast } = useToast();
   
   const currentUser = activeUser!;
-  const otherUser = users.find(user => user.id !== currentUser.id)!;
+  const otherUser = users.find(user => user.id !== currentUser?.id)!;
   
   const activeMilestones = getActiveMilestones();
   const completedMilestones = getCompletedMilestones();

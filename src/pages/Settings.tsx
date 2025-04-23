@@ -1,403 +1,301 @@
-import React, { useState, useRef, useEffect } from "react";
+
+import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { usePacts } from "@/context/PactContext";
-import { exportAppData, importAppData } from "@/utils/dataExport";
-import { checkSupabaseConnection, hasValidSupabaseCredentials } from "@/lib/supabase";
-import { 
-  Download, Upload, Palette, Moon, Sun, CloudCog, 
-  User, UserCog, Database, RefreshCw, ArrowLeftRight,
-  CheckCircle, XCircle, AlertCircle, Settings as SettingsIcon
-} from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ConnectionStatus, useConnectionStatus } from "@/components/ui/connection-status";
+import { useConnectionStatus, ConnectionStatus } from "@/components/ui/connection-status";
+import { hasValidSupabaseCredentials } from "@/lib/supabase";
+import { AlertTriangle, Save, InfoIcon } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const Settings: React.FC = () => {
+  const { activeUser, users, updateUser } = useAuth();
   const { toast } = useToast();
-  const { users, activeUser, updateUser, isError: authError } = useAuth();
-  const { isError: pactError, isConfigured } = usePacts();
-  const [theme, setTheme] = useState(() => localStorage.getItem("2getherLoop_theme") || "light");
-  const [importing, setImporting] = useState(false);
   const connectionStatus = useConnectionStatus();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("2getherLoop_theme") || "light";
+  });
+  
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    return localStorage.getItem("2getherLoop_notifications") !== "disabled";
+  });
+  
+  const [supabaseUrl, setSupabaseUrl] = useState(
+    import.meta.env.VITE_SUPABASE_URL || localStorage.getItem("SUPABASE_URL") || ""
+  );
+  
+  const [supabaseKey, setSupabaseKey] = useState(
+    import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem("SUPABASE_ANON_KEY") || ""
+  );
+  
+  const [userName, setUserName] = useState(activeUser?.name || "");
+  const [partnerName, setPartnerName] = useState(users.find(u => u.id !== activeUser?.id)?.name || "");
+  
+  useEffect(() => {
+    // Apply theme
+    document.documentElement.classList.remove("light", "dark");
+    document.documentElement.classList.add(theme);
+    localStorage.setItem("2getherLoop_theme", theme);
+  }, [theme]);
+  
+  useEffect(() => {
+    // Save notification preferences
+    localStorage.setItem("2getherLoop_notifications", notificationsEnabled ? "enabled" : "disabled");
+  }, [notificationsEnabled]);
   
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
-    localStorage.setItem("2getherLoop_theme", newTheme);
-    
-    // Apply theme to document
-    document.documentElement.classList.remove("light", "dark", "couple-mode");
-    document.documentElement.classList.add(newTheme);
+  };
+  
+  const handleSaveSupabase = () => {
+    localStorage.setItem("SUPABASE_URL", supabaseUrl);
+    localStorage.setItem("SUPABASE_ANON_KEY", supabaseKey);
     
     toast({
-      title: "Theme updated",
-      description: `Theme set to ${newTheme}`,
+      title: "Settings Saved",
+      description: "Please reload the app for changes to take effect."
     });
   };
-
-  const handleExport = () => {
-    const success = exportAppData();
-    if (success) {
+  
+  const handleSaveNames = () => {
+    if (userName.trim() && partnerName.trim()) {
+      const currentUser = users.find(u => u.id === activeUser?.id);
+      const partner = users.find(u => u.id !== activeUser?.id);
+      
+      if (currentUser) {
+        updateUser({
+          ...currentUser,
+          name: userName.trim()
+        });
+      }
+      
+      if (partner) {
+        updateUser({
+          ...partner,
+          name: partnerName.trim()
+        });
+      }
+      
       toast({
-        title: "Data exported successfully",
-        description: "Your backup file has been downloaded",
+        title: "Names Updated",
+        description: "Your names have been updated successfully."
       });
     } else {
       toast({
-        title: "Export failed",
-        description: "There was an error exporting your data",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setImporting(true);
-    
-    try {
-      const message = await importAppData(file);
-      toast({
-        title: "Import successful",
-        description: message,
-      });
-      // Refresh the page after successful import
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (error) {
-      toast({
-        title: "Import failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-    } finally {
-      setImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleUpdateUsername = (userId: string, newName: string) => {
-    const userToUpdate = users.find(u => u.id === userId);
-    if (userToUpdate) {
-      updateUser({ ...userToUpdate, name: newName });
-      toast({
-        title: "Name updated",
-        description: `User profile name updated to ${newName}`,
+        title: "Names Required",
+        description: "Both names must be filled out.",
+        variant: "destructive"
       });
     }
   };
   
-  const handleRetryConnection = async () => {
-    if (!hasValidSupabaseCredentials()) {
-      toast({
-        title: "Supabase Not Configured",
-        description: "Please set up your Supabase URL and anonymous key first.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const handleResetApp = () => {
+    // Clear local storage except for theme
+    const savedTheme = localStorage.getItem("2getherLoop_theme");
+    localStorage.clear();
+    if (savedTheme) localStorage.setItem("2getherLoop_theme", savedTheme);
+    
     toast({
-      title: "Checking connection",
-      description: "Attempting to connect to Supabase...",
+      title: "App Reset",
+      description: "All app data has been cleared. Please reload the app."
     });
-    
-    const isConnected = await checkSupabaseConnection();
-    
-    if (isConnected) {
-      toast({
-        title: "Connection successful",
-        description: "Successfully connected to Supabase",
-      });
-      // Refresh the page to reload data
-      setTimeout(() => window.location.reload(), 1500);
-    } else {
-      toast({
-        title: "Connection failed",
-        description: "Could not connect to Supabase. Working in offline mode.",
-        variant: "destructive",
-      });
-    }
   };
-
+  
   return (
     <Layout>
       <div className="container mx-auto max-w-4xl px-4 py-6">
-        <h1 className="text-2xl font-bold mb-6 gradient-heading">Settings</h1>
-
-        {(!isConfigured || connectionStatus === 'disconnected' || connectionStatus === 'unconfigured') && (
-          <Alert className="mb-6" variant={!isConfigured || connectionStatus === 'unconfigured' ? "destructive" : "warning"}>
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>
-              {!isConfigured || connectionStatus === 'unconfigured' ? "Supabase Not Configured" : "Connection Issue"}
-            </AlertTitle>
-            <AlertDescription className="flex flex-col gap-2">
-              {!isConfigured || connectionStatus === 'unconfigured' ? (
-                <p>Supabase is not configured properly. Your data is saved locally but not synced to the cloud. Please update your Supabase settings.</p>
-              ) : (
-                <p>There are issues with the online sync. Your data is being saved locally but not synced to the cloud.</p>
-              )}
-              <Button onClick={handleRetryConnection} variant="outline" size="sm" className="self-start">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                {!isConfigured || connectionStatus === 'unconfigured' ? "Configure Supabase" : "Retry Connection"}
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <Tabs defaultValue="appearance">
-          <TabsList className="grid grid-cols-3 mb-6">
-            <TabsTrigger value="appearance">
-              <Palette className="h-4 w-4 mr-2" />
-              Appearance
-            </TabsTrigger>
-            <TabsTrigger value="data">
-              <Database className="h-4 w-4 mr-2" />
-              Data & Backup
-            </TabsTrigger>
-            <TabsTrigger value="profile">
-              <UserCog className="h-4 w-4 mr-2" />
-              Profile
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="appearance" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Theme Settings</CardTitle>
-                <CardDescription>
-                  Customize the look and feel of your app
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="mb-4">
-                    <Label>Select Theme</Label>
-                    <div className="grid grid-cols-3 gap-4 mt-2">
-                      <Button 
-                        variant={theme === "light" ? "default" : "outline"}
-                        className="flex flex-col items-center justify-center h-24 p-4"
-                        onClick={() => handleThemeChange("light")}
-                      >
-                        <Sun className="h-8 w-8 mb-2" />
-                        <span>Light</span>
-                      </Button>
-                      <Button 
-                        variant={theme === "dark" ? "default" : "outline"}
-                        className="flex flex-col items-center justify-center h-24 p-4"
-                        onClick={() => handleThemeChange("dark")}
-                      >
-                        <Moon className="h-8 w-8 mb-2" />
-                        <span>Dark</span>
-                      </Button>
-                      <Button 
-                        variant={theme === "couple-mode" ? "default" : "outline"}
-                        className="flex flex-col items-center justify-center h-24 p-4"
-                        onClick={() => handleThemeChange("couple-mode")}
-                      >
-                        <Palette className="h-8 w-8 mb-2" />
-                        <span>Couple Mode</span>
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch id="animations" defaultChecked />
-                    <Label htmlFor="animations">Enable animations</Label>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="data" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Data Management</CardTitle>
-                    <CardDescription>
-                      Export, import, or reset your app data
-                    </CardDescription>
-                  </div>
-                  <ConnectionStatus status={connectionStatus} className="h-6" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="p-4 rounded-lg border bg-muted/50">
-                  <h3 className="font-medium mb-2 flex items-center">
-                    <CloudCog className="h-4 w-4 mr-2" />
-                    Supabase Configuration
-                  </h3>
-                  <div className="mb-4 text-sm">
-                    {connectionStatus === 'connected' ? (
-                      <p className="text-green-600 dark:text-green-400">
-                        Your data is being synced to Supabase. Changes will be available across devices.
-                      </p>
-                    ) : connectionStatus === 'disconnected' ? (
-                      <p className="text-amber-600 dark:text-amber-400">
-                        Working in offline mode. Your data is saved locally but not synced to Supabase.
-                      </p>
-                    ) : connectionStatus === 'unconfigured' ? (
-                      <p className="text-red-600 dark:text-red-400">
-                        Supabase is not configured. Please set your Supabase URL and anonymous key.
-                      </p>
-                    ) : (
-                      <p>Checking connection status...</p>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="supabaseUrl">Supabase URL</Label>
-                      <Input 
-                        id="supabaseUrl" 
-                        placeholder="https://your-project.supabase.co"
-                        defaultValue={import.meta.env.VITE_SUPABASE_URL || ''}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="supabaseAnonKey">Supabase Anonymous Key</Label>
-                      <Input 
-                        id="supabaseAnonKey"
-                        type="password" 
-                        placeholder="your-anon-key"
-                        defaultValue={import.meta.env.VITE_SUPABASE_ANON_KEY || ''}
-                        className="mt-1"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      These values need to be set as environment variables for full functionality.
-                    </p>
-                    <Button 
-                      onClick={handleRetryConnection} 
-                      variant="outline" 
-                      size="sm"
-                    >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Check Connection
-                    </Button>
-                  </div>
-                </div>
+        <h1 className="text-2xl font-bold gradient-heading mb-6">Settings</h1>
+        
+        <div className="grid gap-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Connection Status</CardTitle>
+                <ConnectionStatus status={connectionStatus} />
+              </div>
+              <CardDescription>
+                Configure your Supabase connection for data sync
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="supabaseUrl">Supabase URL</Label>
+                <Input
+                  id="supabaseUrl"
+                  value={supabaseUrl}
+                  onChange={(e) => setSupabaseUrl(e.target.value)}
+                  placeholder="https://your-project.supabase.co"
+                />
+              </div>
               
-                <div className="p-4 rounded-lg border bg-muted/50">
-                  <h3 className="font-medium mb-2 flex items-center">
-                    <ArrowLeftRight className="h-4 w-4 mr-2" />
-                    Backup & Restore
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Export your data to a file for backup or to transfer to another device.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={handleExport}
-                      className="flex items-center"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Export Data
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={handleImportClick}
-                      disabled={importing}
-                      className="flex items-center"
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      {importing ? "Importing..." : "Import Data"}
-                    </Button>
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      onChange={handleFileChange} 
-                      accept=".json"
-                      className="hidden"
-                    />
+              <div className="grid gap-2">
+                <Label htmlFor="supabaseKey">Supabase Anon Key</Label>
+                <Input
+                  id="supabaseKey"
+                  value={supabaseKey}
+                  onChange={(e) => setSupabaseKey(e.target.value)}
+                  type="password"
+                  placeholder="Your Supabase anon/public key"
+                />
+              </div>
+              
+              {!hasValidSupabaseCredentials() && (
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-amber-800 text-sm flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">Supabase is not configured</p>
+                    <p className="mt-1">The app is running in local storage mode. Your data won't be synced or backed up.</p>
                   </div>
                 </div>
-                
-                <div className="p-4 rounded-lg border border-destructive/20 bg-destructive/5">
-                  <h3 className="font-medium mb-2 text-destructive">Reset Data</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    This will permanently delete all your data and cannot be undone.
-                  </p>
-                  <Button variant="destructive" disabled>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Reset All Data
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveSupabase} className="w-full">
+                <Save className="mr-2 h-4 w-4" />
+                Save Connection Settings
+              </Button>
+            </CardFooter>
+          </Card>
           
-          <TabsContent value="profile" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>User Profiles</CardTitle>
-                <CardDescription>
-                  Update user profile information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {users.map(user => (
-                  <div key={user.id} className="p-4 rounded-lg border">
-                    <div className="flex items-center gap-4 mb-3">
-                      <div className="bg-primary/10 rounded-full p-3">
-                        <User className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium">{user.name}</h3>
-                        <p className="text-sm text-muted-foreground">ID: {user.id}</p>
-                      </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Appearance</CardTitle>
+              <CardDescription>
+                Customize the app's appearance
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-2">
+                <Label htmlFor="theme">Theme</Label>
+                <Select value={theme} onValueChange={handleThemeChange}>
+                  <SelectTrigger id="theme">
+                    <SelectValue placeholder="Select a theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>User Profiles</CardTitle>
+              <CardDescription>
+                Update your names in the app
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="userName">Your Name</Label>
+                <Input
+                  id="userName"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="partnerName">Partner's Name</Label>
+                <Input
+                  id="partnerName"
+                  value={partnerName}
+                  onChange={(e) => setPartnerName(e.target.value)}
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveNames}>Save Names</Button>
+            </CardFooter>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Notifications</CardTitle>
+              <CardDescription>
+                Configure app notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="notifications" className="cursor-pointer">
+                  Enable app notifications
+                </Label>
+                <Switch
+                  id="notifications"
+                  checked={notificationsEnabled}
+                  onCheckedChange={setNotificationsEnabled}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Advanced</CardTitle>
+              <CardDescription>
+                Advanced settings and app management
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive">Reset App Data</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Reset App Data</DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="py-4">
+                      <p className="mb-2">This will delete ALL app data, including:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>All pacts and their completion records</li>
+                        <li>All notes and milestones</li>
+                        <li>Connection settings and preferences</li>
+                      </ul>
+                      <p className="mt-4 font-semibold">This action cannot be undone!</p>
                     </div>
-                    <div className="flex gap-2 items-end">
-                      <div className="flex-1">
-                        <Label htmlFor={`name-${user.id}`} className="text-sm">
-                          Display Name
-                        </Label>
-                        <Input 
-                          id={`name-${user.id}`}
-                          defaultValue={user.name}
-                          className="mt-1"
-                        />
-                      </div>
-                      <Button 
-                        size="sm"
-                        onClick={(e) => {
-                          const input = document.getElementById(`name-${user.id}`) as HTMLInputElement;
-                          handleUpdateUsername(user.id, input.value);
-                        }}
-                      >
-                        Update
+                    
+                    <DialogFooter>
+                      <Button variant="outline" type="button">
+                        Cancel
                       </Button>
-                    </div>
+                      <Button 
+                        variant="destructive" 
+                        onClick={handleResetApp}
+                      >
+                        Reset All Data
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                
+                <div className="mt-4">
+                  <Separator className="my-4" />
+                  <div className="flex items-start gap-2 text-muted-foreground text-sm">
+                    <InfoIcon className="h-4 w-4 mt-0.5" />
+                    <p>
+                      2getherLoop v1.0.0<br />
+                      <span className="opacity-70">Last updated: April 2023</span>
+                    </p>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </Layout>
   );

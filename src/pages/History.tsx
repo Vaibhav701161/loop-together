@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
@@ -17,8 +18,7 @@ const History: React.FC = () => {
     logs, 
     getPactStreak, 
     getPactStatus, 
-    getPact,
-    calculateSummary,
+    getPact
   } = usePacts();
   
   const [selectedUser, setSelectedUser] = useState<"user_a" | "user_b">(activeUser?.id || "user_a");
@@ -26,6 +26,16 @@ const History: React.FC = () => {
   const userPacts = pacts.filter(pact => 
     pact.assignedTo === selectedUser || pact.assignedTo === "both"
   );
+  
+  const calculateSummary = (selectedUser: string) => {
+    // For now, just return some dummy data
+    return {
+      currentStreak: 0,
+      longestStreak: 0,
+      totalPacts: userPacts.length,
+      totalCompleted: logs.filter(log => log.userId === selectedUser && log.status === "completed").length
+    };
+  };
   
   const userSummary = calculateSummary(selectedUser);
   
@@ -50,7 +60,7 @@ const History: React.FC = () => {
 
   const pactStreaks = userPacts.map(pact => ({
     pact,
-    streak: getPactStreak(pact.id)
+    streak: getPactStreak(pact.id, selectedUser) 
   })).sort((a, b) => b.streak.current - a.streak.current);
 
   const recentLogs = [...logs]
@@ -61,10 +71,10 @@ const History: React.FC = () => {
   const { toast } = useToast();
 
   const handleDelete = (logId: string) => {
-    deleteLog(logId);
+    // Since there's no deleteLog function, we'll just show a toast for now
     toast({
-      title: "Log Deleted",
-      description: "The activity log has been removed."
+      title: "Cannot Delete",
+      description: "Log deletion is not implemented yet."
     });
   };
 

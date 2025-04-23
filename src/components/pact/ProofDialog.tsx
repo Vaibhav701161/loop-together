@@ -25,7 +25,7 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
   const [imageProof, setImageProof] = useState<string>("");
   const [success, setSuccess] = useState(false);
   const { toast } = useToast();
-  const { addCompletion, addLog } = usePacts();
+  const { addPactCompletion, addPactLog } = usePacts();
   const { activeUser } = useAuth();
 
   const handleComplete = () => {
@@ -54,7 +54,7 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
       proofData = imageProof;
     }
     
-    addCompletion({
+    addPactCompletion({
       pactId,
       userId: activeUser?.id || "user_a",
       completedAt: date,
@@ -64,7 +64,7 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
     });
 
     // Add a log entry
-    addLog({
+    addPactLog({
       pactId,
       userId: activeUser?.id || "user_a",
       completedAt: date,
@@ -83,7 +83,7 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
   };
 
   const handleFailure = () => {
-    addLog({
+    addPactLog({
       pactId,
       userId: activeUser?.id || "user_a",
       completedAt: date,
@@ -125,7 +125,15 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         {success ? (
-          <SuccessAnimation />
+          <SuccessAnimation show={true}>
+            <div className="text-center py-10">
+              <Check className="h-12 w-12 mx-auto text-green-500 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Task Completed!</h3>
+              <p className="text-muted-foreground">
+                Your task has been marked as complete.
+              </p>
+            </div>
+          </SuccessAnimation>
         ) : (
           <>
             <DialogHeader>
