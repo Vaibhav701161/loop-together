@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ProofType } from "@/types";
 import { ImagePlus, Check, X } from "lucide-react";
 import SuccessAnimation from "./SuccessAnimation";
+import { uploadProofImageForPact } from "@/lib/services/pactService";
 
 interface ProofDialogProps {
   pactId: string;
@@ -28,7 +28,7 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
   const { addPactCompletion, addPactLog } = usePacts();
   const { activeUser } = useAuth();
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (proofType === "text" && !textProof.trim()) {
       toast({
         title: "Proof Required",
@@ -45,60 +45,74 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
       return;
     }
 
-    // Add the completion proof
-    let proofData = "";
-    
-    if (proofType === "text") {
-      proofData = textProof;
-    } else if (proofType === "image") {
-      proofData = imageProof;
+    try {
+      // Handle image upload if needed
+      let proofUrl = imageProof;
+      if (proofType === "image" && imageProof.startsWith("blob:")) {
+        const response = await fetch(imageProof);
+        const blob = await response.blob();
+        const file = new File([blob], "proof.jpg", { type: "image/jpeg" });
+        proofUrl = await uploadProofImageForPact(file);
+      }
+
+      // Add the completion proof
+      await addPactCompletion({
+        pactId,
+        userId: activeUser?.id || "user_a",
+        status: "completed",
+        proofType,
+        proofUrl: proofUrl || textProof,
+        note: textProof
+      });
+
+      toast({
+        title: "Success!",
+        description: "Your task has been marked as complete."
+      });
+
+      setSuccess(true);
+      
+      // Close after animation
+      setTimeout(() => {
+        setOpen(false);
+        setSuccess(false);
+        onComplete();
+      }, 2000);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save completion. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    addPactCompletion({
-      pactId,
-      userId: activeUser?.id || "user_a",
-      completedAt: date,
-      proofType,
-      proofUrl: proofData,
-      note: textProof
-    });
-
-    // Add a log entry
-    addPactLog({
-      pactId,
-      userId: activeUser?.id || "user_a",
-      date: date.split('T')[0], // Add the required date property
-      completedAt: date,
-      status: "completed",
-      comment: textProof
-    });
-
-    setSuccess(true);
-    
-    // Close after animation
-    setTimeout(() => {
-      setOpen(false);
-      setSuccess(false);
-      onComplete();
-    }, 2000);
   };
 
-  const handleFailure = () => {
-    addPactLog({
-      pactId,
-      userId: activeUser?.id || "user_a",
-      date: date.split('T')[0], // Add the required date property
-      completedAt: date,
-      status: "failed",
-      comment: textProof
-    });
-    
-    setOpen(false);
-    toast({
-      title: "Marked as Failed",
-      description: "You've logged this task as incomplete."
-    });
-    onComplete();
+  const handleFailure = async () => {
+    try {
+      await addPactCompletion({
+        pactId,
+        userId: activeUser?.id || "user_a",
+        status: "failed",
+        note: textProof
+      });
+
+      toast({
+        title: "Task Failed",
+        description: "The task has been marked as incomplete.",
+        variant: "destructive"
+      });
+
+      setOpen(false);
+      onComplete();
+    } catch (error) {
+      console.error("Error marking task as failed:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update status. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

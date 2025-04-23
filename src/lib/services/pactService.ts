@@ -1,4 +1,3 @@
-
 import { Pact, PactLog } from "@/types";
 import { v4 as uuidv4 } from 'uuid';
 import { 
@@ -6,7 +5,8 @@ import {
   hasValidSupabaseCredentials, 
   saveData, 
   fetchData, 
-  deleteData 
+  deleteData,
+  uploadProofImage
 } from "../supabase";
 
 const PACTS_TABLE = "pacts";
@@ -72,6 +72,47 @@ export const addPactLog = async (log: Omit<PactLog, "id">): Promise<PactLog> => 
   };
   
   return await saveData(LOGS_TABLE, newLog, LOGS_STORAGE_KEY);
+};
+
+// Add or update a pact completion log
+export const addPactCompletion = async (data: {
+  pactId: string;
+  userId: string;
+  status: "completed" | "failed";
+  proofType?: "text" | "image" | "checkbox";
+  proofUrl?: string;
+  note?: string;
+}): Promise<PactLog> => {
+  const newLog: PactLog = {
+    id: uuidv4(),
+    pactId: data.pactId,
+    userId: data.userId,
+    date: new Date().toISOString().split('T')[0],
+    completedAt: new Date().toISOString(),
+    status: data.status,
+    proofType: data.proofType,
+    proofUrl: data.proofUrl,
+    note: data.note
+  };
+
+  if (hasValidSupabaseCredentials()) {
+    try {
+      const { error } = await supabase.from('pact_logs').insert(newLog);
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving completion to Supabase:", error);
+      // Fall back to local storage
+      return await saveData('pact_logs', newLog, '2getherLoop_completions');
+    }
+  }
+
+  // If no Supabase or if it failed, save to localStorage
+  return await saveData('pact_logs', newLog, '2getherLoop_completions');
+};
+
+// Upload proof image for pact completion
+export const uploadProofImageForPact = async (file: File): Promise<string> => {
+  return await uploadProofImage(file);
 };
 
 // Upload proof image
