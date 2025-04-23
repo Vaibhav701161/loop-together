@@ -6,11 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { checkSupabaseConnection } from "@/lib/supabase";
+import { checkSupabaseConnection, hasValidSupabaseCredentials } from "@/lib/supabase";
 import { AlertCircle, CloudOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { isFirebaseConfigured } from "@/lib/firebase";
 import CouplePairing from "@/components/auth/CouplePairing";
 
 const Login: React.FC = () => {
@@ -18,15 +17,16 @@ const Login: React.FC = () => {
   const [personA, setPersonA] = useState(users[0]?.name || "Person A");
   const [personB, setPersonB] = useState(users[1]?.name || "Person B");
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
-  const [isFirebaseSet, setIsFirebaseSet] = useState(false);
+  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
   const [showCouplePairing, setShowCouplePairing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check Firebase configuration
-    setIsFirebaseSet(isFirebaseConfigured());
+    // Check Supabase configuration
+    const isConfigured = hasValidSupabaseCredentials();
+    setIsSupabaseConfigured(isConfigured);
     
-    // Check Supabase connection (legacy)
+    // Check Supabase connection
     const checkConnection = async () => {
       const isConnected = await checkSupabaseConnection();
       setConnectionStatus(isConnected ? 'connected' : 'disconnected');
@@ -50,7 +50,7 @@ const Login: React.FC = () => {
     updateUsers(updatedUsers);
     
     // Check if we need to show couple pairing first
-    if (isFirebaseSet && !showCouplePairing) {
+    if (isSupabaseConfigured && !showCouplePairing) {
       setShowCouplePairing(true);
     } else {
       // Log in as person A
@@ -60,7 +60,7 @@ const Login: React.FC = () => {
   };
 
   const handleCreatePair = (code: string) => {
-    // In a real app, this would create a record in Firebase
+    // In a real app, this would create a record in Supabase
     localStorage.setItem("2getherLoop_couple_code", code);
     
     // Continue to login
@@ -69,7 +69,7 @@ const Login: React.FC = () => {
   };
 
   const handleJoinPair = (code: string) => {
-    // In a real app, this would validate against Firebase
+    // In a real app, this would validate against Supabase
     // For demo, just accept any code
     login("user_a");
     navigate("/");
@@ -82,7 +82,7 @@ const Login: React.FC = () => {
           <h1 className="text-4xl font-bold mb-2 gradient-heading">2getherLoop</h1>
           <p className="text-xl text-purple-700">Track habits together, grow closer 👫</p>
           
-          {isFirebaseSet ? (
+          {isSupabaseConfigured ? (
             <Badge variant="outline" className="mt-2 bg-green-50 text-green-800 border-green-300">
               Cloud Sync Ready
             </Badge>
@@ -94,7 +94,7 @@ const Login: React.FC = () => {
           )}
         </div>
         
-        {!isFirebaseSet && (
+        {!isSupabaseConfigured && (
           <Alert className="mb-4" variant="default">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Working Offline</AlertTitle>
@@ -108,7 +108,7 @@ const Login: React.FC = () => {
           <CouplePairing 
             onCreatePair={handleCreatePair}
             onJoinPair={handleJoinPair}
-            isConfigured={isFirebaseSet}
+            isConfigured={isSupabaseConfigured}
           />
         ) : null}
         
