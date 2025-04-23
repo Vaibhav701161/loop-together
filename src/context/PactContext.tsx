@@ -1,7 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Pact, PactLog, User, CompletionStatus } from "@/types";
 import { v4 as uuidv4 } from 'uuid';
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface PactContextType {
   pacts: Pact[];
@@ -25,6 +26,8 @@ interface PactContextType {
   logs: PactLog[];
   isPactLost: (pactId: string, userId: "user_a" | "user_b") => boolean;
   addPactLog: (log: Omit<PactLog, "id">) => void;
+  isLoading: boolean;
+  isError: boolean;
 }
 
 const PactContext = createContext<PactContextType | undefined>(undefined);
@@ -38,45 +41,174 @@ export const usePacts = () => {
 };
 
 export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [pacts, setPacts] = useState<Pact[]>(() => {
-    const storedPacts = localStorage.getItem("2getherLoop_pacts");
-    return storedPacts ? JSON.parse(storedPacts) : [];
-  });
-  const [completions, setCompletions] = useState<PactLog[]>(() => {
-    const storedCompletions = localStorage.getItem("2getherLoop_completions");
-    return storedCompletions ? JSON.parse(storedCompletions) : [];
-  });
+  const [pacts, setPacts] = useState<Pact[]>([]);
+  const [completions, setCompletions] = useState<PactLog[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isError, setIsError] = useState<boolean>(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
-  }, [pacts]);
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const { data: pactsData, error: pactsError } = await supabase
+          .from('pacts')
+          .select('*');
+        
+        if (pactsError) throw pactsError;
+        
+        const { data: completionsData, error: completionsError } = await supabase
+          .from('pact_logs')
+          .select('*');
+        
+        if (completionsError) throw completionsError;
+        
+        setPacts(pactsData as Pact[]);
+        setCompletions(completionsData as PactLog[]);
+        
+        localStorage.setItem("2getherLoop_pacts", JSON.stringify(pactsData));
+        localStorage.setItem("2getherLoop_completions", JSON.stringify(completionsData));
+        
+      } catch (error) {
+        console.error("Error loading data from Supabase:", error);
+        toast({
+          title: "Connection Error",
+          description: "Falling back to local data. Some changes might not be saved online.",
+          variant: "destructive"
+        });
+        
+        const storedPacts = localStorage.getItem("2getherLoop_pacts");
+        const storedCompletions = localStorage.getItem("2getherLoop_completions");
+        
+        if (storedPacts) {
+          setPacts(JSON.parse(storedPacts));
+        }
+        
+        if (storedCompletions) {
+          setCompletions(JSON.parse(storedCompletions));
+        }
+        
+        setIsError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [toast]);
 
   useEffect(() => {
-    localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
-  }, [completions]);
+    const savePacts = async () => {
+      if (!pacts.length || isLoading) return;
+      
+      try {
+        await supabase.from('pacts').delete().neq('id', '0');
+        const { error } = await supabase.from('pacts').insert(pacts);
+        
+        if (error) throw error;
+        
+        localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
+      } catch (error) {
+        console.error("Failed to save pacts to Supabase:", error);
+        localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
+      }
+    };
+    
+    savePacts();
+  }, [pacts, isLoading]);
 
-  const addPact = (pact: Omit<Pact, "id">) => {
+  useEffect(() => {
+    const saveCompletions = async () => {
+      if (!completions.length || isLoading) return;
+      
+      try {
+        await supabase.from('pact_logs').delete().neq('id', '0');
+        const { error } = await supabase.from('pact_logs').insert(completions);
+        
+        if (error) throw error;
+        
+        localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
+      } catch (error) {
+        console.error("Failed to save completions to Supabase:", error);
+        localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
+      }
+    };
+    
+    saveCompletions();
+  }, [completions, isLoading]);
+
+  const addPact = async (pact: Omit<Pact, "id">) => {
     const newPact: Pact = { 
       id: uuidv4(), 
       ...pact,
       createdAt: pact.createdAt || new Date().toISOString(),
       startDate: pact.startDate || new Date().toISOString().split('T')[0]
     };
+    
     setPacts(prevPacts => [...prevPacts, newPact]);
+    
+    try {
+      const { error } = await supabase.from('pacts').insert(newPact);
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving pact to Supabase:", error);
+      toast({
+        title: "Sync Error",
+        description: "Pact saved locally but failed to sync online",
+        variant: "destructive"
+      });
+    }
   };
 
-  const updatePact = (pact: Pact) => {
-    setPacts(prevPacts =>
-      prevPacts.map(p => (p.id === pact.id ? pact : p))
-    );
+  const updatePact = async (pact: Pact) => {
+    setPacts(prevPacts => prevPacts.map(p => (p.id === pact.id ? pact : p)));
+    
+    try {
+      const { error } = await supabase
+        .from('pacts')
+        .update(pact)
+        .eq('id', pact.id);
+        
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error updating pact in Supabase:", error);
+      toast({
+        title: "Sync Error",
+        description: "Pact updated locally but failed to sync online",
+        variant: "destructive"
+      });
+    }
   };
 
-  const deletePact = (pactId: string) => {
+  const deletePact = async (pactId: string) => {
     setPacts(prevPacts => prevPacts.filter(pact => pact.id !== pactId));
     setCompletions(prevCompletions => prevCompletions.filter(completion => completion.pactId !== pactId));
+    
+    try {
+      const { error: pactError } = await supabase
+        .from('pacts')
+        .delete()
+        .eq('id', pactId);
+        
+      if (pactError) throw pactError;
+      
+      const { error: completionsError } = await supabase
+        .from('pact_logs')
+        .delete()
+        .eq('pactId', pactId);
+        
+      if (completionsError) throw completionsError;
+    } catch (error) {
+      console.error("Error deleting pact from Supabase:", error);
+      toast({
+        title: "Sync Error",
+        description: "Pact deleted locally but failed to sync online",
+        variant: "destructive"
+      });
+    }
   };
 
-  const addPactCompletion = (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => {
+  const addPactCompletion = async (pactId: string, userId: "user_a" | "user_b", data: Omit<PactLog, "id" | "completedAt" | "date">) => {
     const today = new Date().toISOString().split('T')[0];
     const newCompletion: PactLog = {
       id: `compl_${Date.now()}`,
@@ -91,14 +223,45 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setCompletions(prevCompletions => [...prevCompletions, newCompletion]);
+    
+    try {
+      const { error } = await supabase
+        .from('pact_logs')
+        .insert(newCompletion);
+        
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving completion to Supabase:", error);
+      toast({
+        title: "Sync Error",
+        description: "Completion saved locally but failed to sync online",
+        variant: "destructive"
+      });
+    }
   };
 
-  const addPactLog = (log: Omit<PactLog, "id">) => {
+  const addPactLog = async (log: Omit<PactLog, "id">) => {
     const newLog: PactLog = {
       id: `log_${Date.now()}`,
       ...log
     };
+    
     setCompletions(prev => [...prev, newLog]);
+    
+    try {
+      const { error } = await supabase
+        .from('pact_logs')
+        .insert(newLog);
+        
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving log to Supabase:", error);
+      toast({
+        title: "Sync Error",
+        description: "Log saved locally but failed to sync online",
+        variant: "destructive"
+      });
+    }
   };
 
   const getTodaysPacts = () => {
@@ -140,11 +303,9 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
     
     if (pactCompletions.length > 0) {
-      // Return the status of the most recent completion
       return pactCompletions[pactCompletions.length - 1].status;
     }
     
-    // If no completions found, check if pact is overdue
     const pact = pacts.find(p => p.id === pactId);
     if (pact) {
       const now = new Date();
@@ -199,7 +360,6 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     longest = Math.max(longest, tempStreak);
     
-    // Calculate current streak
     if (pactCompletions.length > 0) {
       const lastCompletionDate = new Date(pactCompletions[0].date);
       const today = new Date();
@@ -284,7 +444,9 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getPactStreak,
       logs: completions,
       isPactLost,
-      addPactLog
+      addPactLog,
+      isLoading,
+      isError
     }}>
       {children}
     </PactContext.Provider>

@@ -1,25 +1,43 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
+import { checkSupabaseConnection } from "@/lib/supabase";
+import { AlertCircle, CloudOff } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 const Login: React.FC = () => {
-  const { users, updateUsers, login } = useAuth();
+  const { users, updateUsers, login, isLoading } = useAuth();
   const [personA, setPersonA] = useState(users[0]?.name || "Person A");
   const [personB, setPersonB] = useState(users[1]?.name || "Person B");
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      const isConnected = await checkSupabaseConnection();
+      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+    };
+    
+    checkConnection();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (personA.trim() === "" || personB.trim() === "") {
+      return; // Don't submit if names are empty
+    }
+    
     // Update user names
     const updatedUsers = [
-      { ...users[0], name: personA },
-      { ...users[1], name: personB }
+      { ...users[0], name: personA.trim() },
+      { ...users[1], name: personB.trim() }
     ];
     updateUsers(updatedUsers);
     
@@ -34,7 +52,28 @@ const Login: React.FC = () => {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 gradient-heading">2getherLoop</h1>
           <p className="text-xl text-purple-700">Track habits together, grow closer 👫</p>
+          
+          {connectionStatus === 'connected' ? (
+            <Badge variant="outline" className="mt-2">
+              Cloud Sync Enabled
+            </Badge>
+          ) : connectionStatus === 'disconnected' ? (
+            <Badge variant="outline" className="mt-2 bg-amber-50 text-amber-800 border-amber-300">
+              <CloudOff className="h-3 w-3 mr-1" />
+              Offline Mode
+            </Badge>
+          ) : null}
         </div>
+        
+        {connectionStatus === 'disconnected' && (
+          <Alert className="mb-4" variant="default">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Working Offline</AlertTitle>
+            <AlertDescription>
+              No connection to the cloud database. Your data will be stored locally until connection is restored.
+            </AlertDescription>
+          </Alert>
+        )}
         
         <Card className="w-full shadow-lg">
           <CardHeader>
@@ -53,6 +92,7 @@ const Login: React.FC = () => {
                   onChange={(e) => setPersonA(e.target.value)}
                   placeholder="Enter person A's name"
                   className="border-couple-purple/50"
+                  disabled={isLoading}
                   required
                 />
               </div>
@@ -64,13 +104,18 @@ const Login: React.FC = () => {
                   onChange={(e) => setPersonB(e.target.value)}
                   placeholder="Enter person B's name"
                   className="border-couple-orange/50"
+                  disabled={isLoading}
                   required
                 />
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="w-full bg-gradient-to-r from-couple-purple to-couple-pink">
-                Start Tracking Together
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-couple-purple to-couple-pink"
+                disabled={isLoading}
+              >
+                {isLoading ? "Loading..." : "Start Tracking Together"}
               </Button>
             </CardFooter>
           </form>

@@ -1,6 +1,7 @@
-import React, { useState, useRef } from "react";
+
+import React, { useState, useRef, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -8,10 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
+import { usePacts } from "@/context/PactContext";
 import { exportAppData, importAppData } from "@/utils/dataExport";
+import { checkSupabaseConnection } from "@/lib/supabase";
 import { 
   Download, Upload, Palette, Moon, Sun, CloudCog, 
-  User, UserCog, Database, RefreshCw, ArrowLeftRight
+  User, UserCog, Database, RefreshCw, ArrowLeftRight,
+  CheckCircle, XCircle, AlertCircle
 } from "lucide-react";
 import {
   Select,
@@ -20,13 +24,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
-  const { users, activeUser, updateUser } = useAuth();
+  const { users, activeUser, updateUser, isError: authError } = useAuth();
+  const { isError: pactError } = usePacts();
   const [theme, setTheme] = useState(() => localStorage.getItem("2getherLoop_theme") || "light");
   const [importing, setImporting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    const checkConnection = async () => {
+      setConnectionStatus('checking');
+      const isConnected = await checkSupabaseConnection();
+      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+    };
+    
+    checkConnection();
+  }, []);
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
@@ -74,6 +92,8 @@ const Settings: React.FC = () => {
         title: "Import successful",
         description: message,
       });
+      // Refresh the page after successful import
+      setTimeout(() => window.location.reload(), 1500);
     } catch (error) {
       toast({
         title: "Import failed",
@@ -96,11 +116,51 @@ const Settings: React.FC = () => {
       });
     }
   };
+  
+  const handleRetryConnection = async () => {
+    setConnectionStatus('checking');
+    toast({
+      title: "Checking connection",
+      description: "Attempting to reconnect to Supabase...",
+    });
+    
+    const isConnected = await checkSupabaseConnection();
+    setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+    
+    if (isConnected) {
+      toast({
+        title: "Connection restored",
+        description: "Successfully connected to Supabase",
+      });
+      // Refresh the page to reload data
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      toast({
+        title: "Connection failed",
+        description: "Could not connect to Supabase. Working in offline mode.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <Layout>
       <div className="container mx-auto max-w-4xl px-4 py-6">
         <h1 className="text-2xl font-bold mb-6 gradient-heading">Settings</h1>
+
+        {(connectionStatus === 'disconnected' || authError || pactError) && (
+          <Alert className="mb-6" variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Connection Issue</AlertTitle>
+            <AlertDescription className="flex flex-col gap-2">
+              <p>There are issues with the online sync. Your data is being saved locally but not synced to the cloud.</p>
+              <Button onClick={handleRetryConnection} variant="outline" size="sm" className="self-start">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry Connection
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Tabs defaultValue="appearance">
           <TabsList className="grid grid-cols-3 mb-6">
@@ -170,12 +230,60 @@ const Settings: React.FC = () => {
           <TabsContent value="data" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Data Management</CardTitle>
-                <CardDescription>
-                  Export, import, or reset your app data
-                </CardDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Data Management</CardTitle>
+                    <CardDescription>
+                      Export, import, or reset your app data
+                    </CardDescription>
+                  </div>
+                  <Badge 
+                    variant={connectionStatus === 'connected' ? 'default' : 'destructive'}
+                    className="h-6"
+                  >
+                    {connectionStatus === 'checking' ? (
+                      'Checking...'
+                    ) : connectionStatus === 'connected' ? (
+                      <span className="flex items-center">
+                        <CheckCircle className="h-3 w-3 mr-1" /> Online
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        <XCircle className="h-3 w-3 mr-1" /> Offline
+                      </span>
+                    )}
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="p-4 rounded-lg border bg-muted/50">
+                  <h3 className="font-medium mb-2 flex items-center">
+                    <CloudCog className="h-4 w-4 mr-2" />
+                    Sync Status
+                  </h3>
+                  <div className="mb-4 text-sm">
+                    {connectionStatus === 'connected' ? (
+                      <p className="text-green-600 dark:text-green-400">
+                        Your data is being synced to the cloud. Changes will be available across devices.
+                      </p>
+                    ) : (
+                      <p className="text-amber-600 dark:text-amber-400">
+                        Working in offline mode. Your data is saved locally but not synced to the cloud.
+                      </p>
+                    )}
+                  </div>
+                  {connectionStatus !== 'connected' && (
+                    <Button 
+                      onClick={handleRetryConnection} 
+                      variant="outline" 
+                      size="sm"
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Check Connection
+                    </Button>
+                  )}
+                </div>
+              
                 <div className="p-4 rounded-lg border bg-muted/50">
                   <h3 className="font-medium mb-2 flex items-center">
                     <ArrowLeftRight className="h-4 w-4 mr-2" />
@@ -209,20 +317,6 @@ const Settings: React.FC = () => {
                       accept=".json"
                       className="hidden"
                     />
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-lg border bg-muted/50">
-                  <h3 className="font-medium mb-2 flex items-center">
-                    <CloudCog className="h-4 w-4 mr-2" />
-                    Sync Options
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Local storage is currently being used. Cloud sync is coming soon!
-                  </p>
-                  <div className="flex items-center space-x-2 opacity-60">
-                    <Switch id="cloud-sync" disabled />
-                    <Label htmlFor="cloud-sync">Enable cloud sync (Coming Soon)</Label>
                   </div>
                 </div>
                 

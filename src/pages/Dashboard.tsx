@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +11,12 @@ import ProofDialog from "@/components/pact/ProofDialog";
 import StreakHeatmap from "@/components/streak/StreakHeatmap";
 import { Pact, CompletionStatus } from "@/types";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles } from "lucide-react";
+import { Sparkles, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import SuccessAnimation from "@/components/pact/SuccessAnimation";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ConnectionStatus } from "@/components/ui/connection-status";
+import { checkSupabaseConnection } from "@/lib/supabase";
 
 const Dashboard: React.FC = () => {
   const { activeUser, users } = useAuth();
@@ -22,13 +26,38 @@ const Dashboard: React.FC = () => {
     getUserCompletedPacts,
     getPactStatus,
     calculateSummary,
+    isLoading,
+    isError
   } = usePacts();
   const navigate = useNavigate();
   const [selectedPact, setSelectedPact] = useState<Pact | null>(null);
   const [proofDialogOpen, setProofDialogOpen] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
 
-  const currentUser = activeUser!;
+  useEffect(() => {
+    const checkConnection = async () => {
+      const isConnected = await checkSupabaseConnection();
+      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+    };
+    
+    checkConnection();
+  }, []);
+
+  if (!activeUser || isLoading) {
+    return (
+      <Layout>
+        <div className="container mx-auto max-w-4xl p-4 text-center py-12">
+          <div className="animate-pulse">
+            <h2 className="text-2xl font-bold mb-4">Loading...</h2>
+            <p className="text-muted-foreground">Fetching your pacts and data</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+  
+  const currentUser = activeUser;
   const otherUser = users.find(u => u.id !== currentUser.id)!;
 
   const currentUserId = currentUser.id as "user_a" | "user_b";
@@ -127,8 +156,22 @@ const Dashboard: React.FC = () => {
     <Layout>
       <SuccessAnimation show={showSuccessAnimation}>
         <div className="container mx-auto max-w-4xl">
-          <h1 className="text-2xl font-bold mb-2 gradient-heading">Today's Dashboard</h1>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold gradient-heading">Today's Dashboard</h1>
+            <ConnectionStatus status={connectionStatus} />
+          </div>
+          
           <p className="text-muted-foreground mb-6">{today}</p>
+          
+          {connectionStatus === 'disconnected' && (
+            <Alert className="mb-6" variant="default">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Working Offline</AlertTitle>
+              <AlertDescription>
+                Your data is currently stored locally. Your changes will be synced when connection is restored.
+              </AlertDescription>
+            </Alert>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             {renderUserStatsCard(currentUser, userStats, "border-l-couple-purple", "text-couple-purple")}
@@ -223,9 +266,10 @@ const Dashboard: React.FC = () => {
         
         {selectedPact && (
           <ProofDialog
-            pact={selectedPact}
-            open={proofDialogOpen}
-            onOpenChange={handleProofDialogOpenChange}
+            pactId={selectedPact.id}
+            date={new Date().toISOString()}
+            proofType={selectedPact.proofType as any}
+            onComplete={() => setProofDialogOpen(false)}
           />
         )}
       </SuccessAnimation>
