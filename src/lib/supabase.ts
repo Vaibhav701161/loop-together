@@ -1,14 +1,20 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { setupDatabaseSchema } from './supabase/schema';
 
 // Define default values for development and safety
 const DEFAULT_SUPABASE_URL = 'https://your-project-id.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'your-anon-key';
 
 // Get environment variables or use fallbacks
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 
+                    localStorage.getItem("VITE_SUPABASE_URL") || 
+                    DEFAULT_SUPABASE_URL;
+
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 
+                        localStorage.getItem("VITE_SUPABASE_ANON_KEY") || 
+                        DEFAULT_SUPABASE_ANON_KEY;
 
 // Create the Supabase client with fallbacks to prevent blank screens
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -18,7 +24,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Utility function to check if Supabase connection is valid
+/**
+ * Checks if Supabase connection is valid
+ */
 export async function checkSupabaseConnection(): Promise<boolean> {
   try {
     // Attempt to query a simple value to check connection
@@ -30,51 +38,48 @@ export async function checkSupabaseConnection(): Promise<boolean> {
   }
 }
 
-// Helper to determine if we have valid credentials
+/**
+ * Helper to determine if we have valid credentials
+ */
 export function hasValidSupabaseCredentials(): boolean {
+  const url = supabaseUrl || localStorage.getItem("VITE_SUPABASE_URL");
+  const key = supabaseAnonKey || localStorage.getItem("VITE_SUPABASE_ANON_KEY");
+  
   return (
-    supabaseUrl !== DEFAULT_SUPABASE_URL && 
-    supabaseUrl !== '' && 
-    supabaseAnonKey !== DEFAULT_SUPABASE_ANON_KEY && 
-    supabaseAnonKey !== ''
+    url !== DEFAULT_SUPABASE_URL && 
+    url !== '' && 
+    key !== DEFAULT_SUPABASE_ANON_KEY && 
+    key !== ''
   );
 }
 
-// Initialize database schema if needed
+/**
+ * Initialize database schema if needed
+ */
 export async function initSupabaseSchema() {
+  // Only try to initialize if we have valid credentials
+  if (!hasValidSupabaseCredentials()) {
+    console.warn("Cannot initialize Supabase schema: Invalid credentials");
+    return false;
+  }
+  
   try {
-    // Create users table if it doesn't exist
-    const { error: usersError } = await supabase.rpc('create_users_table');
-    if (usersError && !usersError.message.includes('already exists')) {
-      console.error("Error creating users table:", usersError);
+    const result = await setupDatabaseSchema();
+    
+    if (!result.success) {
+      console.error("Database initialization had errors:", result.errors);
     }
     
-    // Create pacts table if it doesn't exist
-    const { error: pactsError } = await supabase.rpc('create_pacts_table');
-    if (pactsError && !pactsError.message.includes('already exists')) {
-      console.error("Error creating pacts table:", pactsError);
-    }
-    
-    // Create pact_logs table if it doesn't exist
-    const { error: logsError } = await supabase.rpc('create_pact_logs_table');
-    if (logsError && !logsError.message.includes('already exists')) {
-      console.error("Error creating pact_logs table:", logsError);
-    }
-
-    // Create couple_codes table if it doesn't exist
-    const { error: codesError } = await supabase.rpc('create_couple_codes_table');
-    if (codesError && !codesError.message.includes('already exists')) {
-      console.error("Error creating couple_codes table:", codesError);
-    }
-    
-    return true;
+    return result.success;
   } catch (error) {
     console.error("Database initialization failed:", error);
     return false;
   }
 }
 
-// Helper function to save data to Supabase or localStorage as fallback
+/**
+ * Helper function to save data to Supabase or localStorage as fallback
+ */
 export async function saveData<T extends { id: string }>(
   tableName: string, 
   data: T, 
@@ -93,18 +98,17 @@ export async function saveData<T extends { id: string }>(
       if (error) throw error;
     } catch (error) {
       console.error(`Error saving to ${tableName}:`, error);
-      toast({
-        title: 'Sync Error',
-        description: `Data saved locally but failed to sync online`,
-        variant: 'destructive',
-      });
+      // We don't use toast here to avoid circular dependencies
+      console.warn(`Data saved locally but failed to sync online`);
     }
   }
   
   return data;
 }
 
-// Helper to fetch data from Supabase or localStorage
+/**
+ * Helper to fetch data from Supabase or localStorage
+ */
 export async function fetchData<T>(
   tableName: string,
   localStorageKey: string
@@ -129,7 +133,9 @@ export async function fetchData<T>(
   return localData ? JSON.parse(localData) as T[] : [];
 }
 
-// Helper to delete data from Supabase and localStorage
+/**
+ * Helper to delete data from Supabase and localStorage
+ */
 export async function deleteData(
   tableName: string,
   id: string,
@@ -158,12 +164,16 @@ export async function deleteData(
   return true;
 }
 
-// Generate a unique code for couple pairing
+/**
+ * Generate a unique code for couple pairing
+ */
 export function generateCoupleCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-// Create a couple pairing in Supabase
+/**
+ * Create a couple pairing in Supabase
+ */
 export async function createCouplePairing(code: string, userId: string): Promise<boolean> {
   // Save to localStorage first
   const storedCodes = localStorage.getItem("2getherLoop_couple_codes");
@@ -191,7 +201,9 @@ export async function createCouplePairing(code: string, userId: string): Promise
   return true;
 }
 
-// Validate and use a couple code
+/**
+ * Validate and use a couple code
+ */
 export async function validateCoupleCode(code: string): Promise<string | null> {
   // Check localStorage first
   const storedCodes = localStorage.getItem("2getherLoop_couple_codes");
@@ -218,4 +230,97 @@ export async function validateCoupleCode(code: string): Promise<string | null> {
   }
   
   return null;
+}
+
+/**
+ * Upload proof image to Supabase storage or convert to data URL for local storage
+ */
+export async function uploadProofImage(file: File): Promise<string> {
+  // Return data URL for local storage mode
+  if (!hasValidSupabaseCredentials()) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  
+  // Upload to Supabase Storage
+  try {
+    // Create a unique filename
+    const extension = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${extension}`;
+    
+    // Upload the file to the 'proofs' bucket
+    const { data, error } = await supabase.storage
+      .from('proofs')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) throw error;
+    
+    // Get public URL for the uploaded file
+    const { data: urlData } = supabase.storage
+      .from('proofs')
+      .getPublicUrl(fileName);
+    
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error("Error uploading image to Supabase:", error);
+    
+    // Fallback to data URL
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+}
+
+/**
+ * Setup real-time subscription for data changes
+ */
+export function subscribeToChanges(
+  tableName: string, 
+  onInsert?: (payload: any) => void, 
+  onUpdate?: (payload: any) => void, 
+  onDelete?: (payload: any) => void
+) {
+  if (!hasValidSupabaseCredentials()) return () => {}; // Return no-op if not configured
+  
+  const channel = supabase
+    .channel(`public:${tableName}`)
+    .on('postgres_changes', {
+      event: 'INSERT', 
+      schema: 'public', 
+      table: tableName
+    }, (payload) => {
+      if (onInsert) onInsert(payload);
+    })
+    .on('postgres_changes', {
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: tableName
+    }, (payload) => {
+      if (onUpdate) onUpdate(payload);
+    })
+    .on('postgres_changes', {
+      event: 'DELETE', 
+      schema: 'public', 
+      table: tableName
+    }, (payload) => {
+      if (onDelete) onDelete(payload);
+    })
+    .subscribe();
+  
+  // Return unsubscribe function
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }

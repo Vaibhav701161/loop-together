@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { UserPlus, Users, KeyRound, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { generateCoupleCode, createCouplePairing, validateCoupleCode } from "@/lib/supabase";
 
 interface CouplePairingProps {
   onCreatePair: (code: string) => void;
@@ -17,24 +18,55 @@ interface CouplePairingProps {
 const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair, isConfigured }) => {
   const [pairingCode, setPairingCode] = useState("");
   const [generatedCode, setGeneratedCode] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   const { toast } = useToast();
 
-  const handleGenerateCode = () => {
-    // Generate a random 6-character code
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setGeneratedCode(code);
-    onCreatePair(code);
+  const handleGenerateCode = async () => {
+    setIsGenerating(true);
     
-    // Copy to clipboard
-    navigator.clipboard.writeText(code);
-    
-    toast({
-      title: "Code Generated",
-      description: "Your couple code has been generated and copied to clipboard."
-    });
+    try {
+      // Generate a random 6-character code
+      const code = generateCoupleCode();
+      setGeneratedCode(code);
+      
+      // Create the pairing in Supabase/localStorage
+      const success = await createCouplePairing(code, "user_a");
+      
+      if (success) {
+        // Copy to clipboard
+        navigator.clipboard.writeText(code).catch(() => {
+          // Clipboard API might not be available in some browsers
+          console.warn("Could not copy to clipboard");
+        });
+        
+        toast({
+          title: "Code Generated",
+          description: "Your couple code has been generated and copied to clipboard."
+        });
+        
+        // Notify parent component
+        onCreatePair(code);
+      } else {
+        toast({
+          title: "Error",
+          description: "Could not generate couple code. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error generating code:", error);
+      toast({
+        title: "Error",
+        description: "Could not generate couple code. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const handleJoinWithCode = () => {
+  const handleJoinWithCode = async () => {
     if (!pairingCode.trim()) {
       toast({
         title: "Invalid Code",
@@ -44,7 +76,35 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
       return;
     }
     
-    onJoinPair(pairingCode.trim());
+    setIsJoining(true);
+    
+    try {
+      // Validate the code with Supabase/localStorage
+      const partnerUserId = await validateCoupleCode(pairingCode.trim());
+      
+      if (partnerUserId) {
+        toast({
+          title: "Success",
+          description: "Successfully connected with your partner's account.",
+        });
+        onJoinPair(pairingCode.trim());
+      } else {
+        toast({
+          title: "Invalid Code",
+          description: "The code you entered is invalid or expired.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error validating code:", error);
+      toast({
+        title: "Error",
+        description: "Could not validate couple code. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   if (!isConfigured) {
@@ -53,7 +113,7 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Connection Required</AlertTitle>
         <AlertDescription>
-          To pair with your partner, you need to configure Firebase in the Settings page.
+          To pair with your partner, you need to configure Supabase in the Settings page.
           For now, you can continue in offline mode.
         </AlertDescription>
       </Alert>
@@ -90,8 +150,9 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
               <Button 
                 onClick={handleGenerateCode}
                 className="w-full bg-gradient-to-r from-couple-purple to-couple-pink"
+                disabled={isGenerating}
               >
-                Generate Couple Code
+                {isGenerating ? "Generating..." : "Generate Couple Code"}
               </Button>
               
               {generatedCode && (
@@ -126,9 +187,10 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
                 <Button 
                   onClick={handleJoinWithCode}
                   className="w-full bg-gradient-to-r from-couple-purple to-couple-pink"
+                  disabled={isJoining}
                 >
                   <KeyRound className="mr-2 h-4 w-4" />
-                  Connect
+                  {isJoining ? "Connecting..." : "Connect"}
                 </Button>
               </div>
             </div>
