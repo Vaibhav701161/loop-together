@@ -1,3 +1,4 @@
+
 import { Pact, PactLog } from "@/types";
 import { v4 as uuidv4 } from 'uuid';
 import { 
@@ -6,7 +7,7 @@ import {
   saveData, 
   fetchData, 
   deleteData,
-  uploadProofImage
+  uploadProofImage as supabaseUploadProofImage
 } from "../supabase";
 
 const PACTS_TABLE = "pacts";
@@ -77,7 +78,7 @@ export const addPactLog = async (log: Omit<PactLog, "id">): Promise<PactLog> => 
 // Add or update a pact completion log
 export const addPactCompletion = async (data: {
   pactId: string;
-  userId: string;
+  userId: "user_a" | "user_b";  // Use correct type to match the PactLog type
   status: "completed" | "failed";
   proofType?: "text" | "image" | "checkbox";
   proofUrl?: string;
@@ -112,11 +113,11 @@ export const addPactCompletion = async (data: {
 
 // Upload proof image for pact completion
 export const uploadProofImageForPact = async (file: File): Promise<string> => {
-  return await uploadProofImage(file);
+  return await handleProofImageUpload(file);
 };
 
-// Upload proof image
-export const uploadProofImage = async (file: File): Promise<string> => {
+// Helper function for uploading proof images (renamed to avoid conflict)
+const handleProofImageUpload = async (file: File): Promise<string> => {
   // Return data URL for local storage mode
   if (useLocalStorage()) {
     return new Promise((resolve) => {
@@ -128,21 +129,9 @@ export const uploadProofImage = async (file: File): Promise<string> => {
     });
   }
   
-  // Upload to Supabase Storage
+  // Upload to Supabase Storage using the imported function
   try {
-    const fileName = `${uuidv4()}-${file.name}`;
-    const { data, error } = await supabase.storage
-      .from('proofs')
-      .upload(fileName, file);
-    
-    if (error) throw error;
-    
-    // Get public URL for the uploaded file
-    const { data: urlData } = supabase.storage
-      .from('proofs')
-      .getPublicUrl(fileName);
-    
-    return urlData.publicUrl;
+    return await supabaseUploadProofImage(file);
   } catch (error) {
     console.error("Error uploading image to Supabase:", error);
     
