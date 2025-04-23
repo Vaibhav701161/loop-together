@@ -1,8 +1,18 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Pact, PactLog, User, CompletionStatus } from "@/types";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import { supabase, hasValidSupabaseCredentials } from "@/lib/supabase";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import {
+  getPacts as fetchPacts,
+  getPactLogs as fetchPactLogs,
+  addPact as createPact,
+  updatePact as updateFirebasePact,
+  deletePact as deleteFirebasePact,
+  addPactLog as createPactLog
+} from "@/lib/services/pactService";
 
 interface PactContextType {
   pacts: Pact[];
@@ -49,38 +59,59 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isConfigured, setIsConfigured] = useState<boolean>(true);
   const { toast } = useToast();
 
+  // Check if either Firebase or Supabase is configured
+  const hasBackend = () => {
+    return isFirebaseConfigured() || hasValidSupabaseCredentials();
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       
-      if (!hasValidSupabaseCredentials()) {
-        setIsConfigured(false);
+      // Check if we have a backend configured
+      const backendAvailable = hasBackend();
+      setIsConfigured(backendAvailable);
+      
+      if (!backendAvailable) {
         loadFromLocalStorage();
         setIsLoading(false);
         return;
       }
       
       try {
-        const { data: pactsData, error: pactsError } = await supabase
-          .from('pacts')
-          .select('*');
-        
-        if (pactsError) throw pactsError;
-        
-        const { data: completionsData, error: completionsError } = await supabase
-          .from('pact_logs')
-          .select('*');
-        
-        if (completionsError) throw completionsError;
-        
-        setPacts(pactsData as Pact[]);
-        setCompletions(completionsData as PactLog[]);
-        
-        localStorage.setItem("2getherLoop_pacts", JSON.stringify(pactsData));
-        localStorage.setItem("2getherLoop_completions", JSON.stringify(completionsData));
-        
+        // Preferentially use Firebase if configured
+        if (isFirebaseConfigured()) {
+          const pactsData = await fetchPacts();
+          const completionsData = await fetchPactLogs();
+          
+          setPacts(pactsData as Pact[]);
+          setCompletions(completionsData as PactLog[]);
+          
+          // Still save to localStorage as backup
+          localStorage.setItem("2getherLoop_pacts", JSON.stringify(pactsData));
+          localStorage.setItem("2getherLoop_completions", JSON.stringify(completionsData));
+        } else {
+          // Fall back to Supabase if Firebase isn't configured but Supabase is
+          const { data: pactsData, error: pactsError } = await supabase
+            .from('pacts')
+            .select('*');
+          
+          if (pactsError) throw pactsError;
+          
+          const { data: completionsData, error: completionsError } = await supabase
+            .from('pact_logs')
+            .select('*');
+          
+          if (completionsError) throw completionsError;
+          
+          setPacts(pactsData as Pact[]);
+          setCompletions(completionsData as PactLog[]);
+          
+          localStorage.setItem("2getherLoop_pacts", JSON.stringify(pactsData));
+          localStorage.setItem("2getherLoop_completions", JSON.stringify(completionsData));
+        }
       } catch (error) {
-        console.error("Error loading data from Supabase:", error);
+        console.error("Error loading data from backend:", error);
         toast({
           title: "Connection Error",
           description: "Falling back to local data. Some changes might not be saved online.",
@@ -110,45 +141,61 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadData();
   }, [toast]);
 
+  // Save pacts to backend when they change
   useEffect(() => {
     const savePacts = async () => {
       if (!pacts.length || isLoading) return;
       
+      // Always save to localStorage as a backup
+      localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
+      
+      if (!hasBackend() || isError) return;
+      
       try {
-        await supabase.from('pacts').delete().neq('id', '0');
-        const { error } = await supabase.from('pacts').insert(pacts);
-        
-        if (error) throw error;
-        
-        localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
+        if (isFirebaseConfigured()) {
+          // Firebase handles individual pact updates in their respective functions
+          // We don't need to do bulk updates here
+        } else if (hasValidSupabaseCredentials()) {
+          await supabase.from('pacts').delete().neq('id', '0');
+          const { error } = await supabase.from('pacts').insert(pacts);
+          
+          if (error) throw error;
+        }
       } catch (error) {
-        console.error("Failed to save pacts to Supabase:", error);
-        localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
+        console.error("Failed to save pacts to backend:", error);
       }
     };
     
     savePacts();
-  }, [pacts, isLoading]);
+  }, [pacts, isLoading, isError]);
 
+  // Save completions to backend when they change
   useEffect(() => {
     const saveCompletions = async () => {
       if (!completions.length || isLoading) return;
       
+      // Always save to localStorage as a backup
+      localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
+      
+      if (!hasBackend() || isError) return;
+      
       try {
-        await supabase.from('pact_logs').delete().neq('id', '0');
-        const { error } = await supabase.from('pact_logs').insert(completions);
-        
-        if (error) throw error;
-        
-        localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
+        if (isFirebaseConfigured()) {
+          // Firebase handles individual completion updates in their respective functions
+          // We don't need to do bulk updates here
+        } else if (hasValidSupabaseCredentials()) {
+          await supabase.from('pact_logs').delete().neq('id', '0');
+          const { error } = await supabase.from('pact_logs').insert(completions);
+          
+          if (error) throw error;
+        }
       } catch (error) {
-        console.error("Failed to save completions to Supabase:", error);
-        localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
+        console.error("Failed to save completions to backend:", error);
       }
     };
     
     saveCompletions();
-  }, [completions, isLoading]);
+  }, [completions, isLoading, isError]);
 
   const addPact = async (pact: Omit<Pact, "id">) => {
     const newPact: Pact = { 
@@ -161,12 +208,16 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPacts(prevPacts => [...prevPacts, newPact]);
     localStorage.setItem("2getherLoop_pacts", JSON.stringify([...pacts, newPact]));
     
-    if (isConfigured && !isError) {
+    if (hasBackend() && !isError) {
       try {
-        const { error } = await supabase.from('pacts').insert(newPact);
-        if (error) throw error;
+        if (isFirebaseConfigured()) {
+          await createPact(pact);
+        } else if (hasValidSupabaseCredentials()) {
+          const { error } = await supabase.from('pacts').insert(newPact);
+          if (error) throw error;
+        }
       } catch (error) {
-        console.error("Error saving pact to Supabase:", error);
+        console.error("Error saving pact to backend:", error);
         toast({
           title: "Sync Error",
           description: "Pact saved locally but failed to sync online",
@@ -183,16 +234,20 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return updated;
     });
     
-    if (isConfigured && !isError) {
+    if (hasBackend() && !isError) {
       try {
-        const { error } = await supabase
-          .from('pacts')
-          .update(pact)
-          .eq('id', pact.id);
-          
-        if (error) throw error;
+        if (isFirebaseConfigured()) {
+          await updateFirebasePact(pact);
+        } else if (hasValidSupabaseCredentials()) {
+          const { error } = await supabase
+            .from('pacts')
+            .update(pact)
+            .eq('id', pact.id);
+            
+          if (error) throw error;
+        }
       } catch (error) {
-        console.error("Error updating pact in Supabase:", error);
+        console.error("Error updating pact in backend:", error);
         toast({
           title: "Sync Error",
           description: "Pact updated locally but failed to sync online",
@@ -215,23 +270,27 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return filtered;
     });
     
-    if (isConfigured && !isError) {
+    if (hasBackend() && !isError) {
       try {
-        const { error: pactError } = await supabase
-          .from('pacts')
-          .delete()
-          .eq('id', pactId);
+        if (isFirebaseConfigured()) {
+          await deleteFirebasePact(pactId);
+        } else if (hasValidSupabaseCredentials()) {
+          const { error: pactError } = await supabase
+            .from('pacts')
+            .delete()
+            .eq('id', pactId);
+            
+          if (pactError) throw pactError;
           
-        if (pactError) throw pactError;
-        
-        const { error: completionsError } = await supabase
-          .from('pact_logs')
-          .delete()
-          .eq('pactId', pactId);
-          
-        if (completionsError) throw completionsError;
+          const { error: completionsError } = await supabase
+            .from('pact_logs')
+            .delete()
+            .eq('pactId', pactId);
+            
+          if (completionsError) throw completionsError;
+        }
       } catch (error) {
-        console.error("Error deleting pact from Supabase:", error);
+        console.error("Error deleting pact from backend:", error);
         toast({
           title: "Sync Error",
           description: "Pact deleted locally but failed to sync online",
@@ -260,15 +319,19 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return updated;
     });
     
-    if (isConfigured && !isError) {
+    if (hasBackend() && !isError) {
       try {
-        const { error } = await supabase
-          .from('pact_logs')
-          .insert(newCompletion);
-          
-        if (error) throw error;
+        if (isFirebaseConfigured()) {
+          await createPactLog(newCompletion);
+        } else if (hasValidSupabaseCredentials()) {
+          const { error } = await supabase
+            .from('pact_logs')
+            .insert(newCompletion);
+            
+          if (error) throw error;
+        }
       } catch (error) {
-        console.error("Error saving completion to Supabase:", error);
+        console.error("Error saving completion to backend:", error);
         toast({
           title: "Sync Error",
           description: "Completion saved locally but failed to sync online",
@@ -290,15 +353,19 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return updated;
     });
     
-    if (isConfigured && !isError) {
+    if (hasBackend() && !isError) {
       try {
-        const { error } = await supabase
-          .from('pact_logs')
-          .insert(newLog);
-          
-        if (error) throw error;
+        if (isFirebaseConfigured()) {
+          await createPactLog(newLog);
+        } else if (hasValidSupabaseCredentials()) {
+          const { error } = await supabase
+            .from('pact_logs')
+            .insert(newLog);
+            
+          if (error) throw error;
+        }
       } catch (error) {
-        console.error("Error saving log to Supabase:", error);
+        console.error("Error saving log to backend:", error);
         toast({
           title: "Sync Error",
           description: "Log saved locally but failed to sync online",

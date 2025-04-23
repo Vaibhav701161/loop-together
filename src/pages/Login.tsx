@@ -10,15 +10,23 @@ import { checkSupabaseConnection } from "@/lib/supabase";
 import { AlertCircle, CloudOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import CouplePairing from "@/components/auth/CouplePairing";
 
 const Login: React.FC = () => {
   const { users, updateUsers, login, isLoading } = useAuth();
   const [personA, setPersonA] = useState(users[0]?.name || "Person A");
   const [personB, setPersonB] = useState(users[1]?.name || "Person B");
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+  const [isFirebaseSet, setIsFirebaseSet] = useState(false);
+  const [showCouplePairing, setShowCouplePairing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check Firebase configuration
+    setIsFirebaseSet(isFirebaseConfigured());
+    
+    // Check Supabase connection (legacy)
     const checkConnection = async () => {
       const isConnected = await checkSupabaseConnection();
       setConnectionStatus(isConnected ? 'connected' : 'disconnected');
@@ -41,7 +49,28 @@ const Login: React.FC = () => {
     ];
     updateUsers(updatedUsers);
     
-    // Log in as person A
+    // Check if we need to show couple pairing first
+    if (isFirebaseSet && !showCouplePairing) {
+      setShowCouplePairing(true);
+    } else {
+      // Log in as person A
+      login("user_a");
+      navigate("/");
+    }
+  };
+
+  const handleCreatePair = (code: string) => {
+    // In a real app, this would create a record in Firebase
+    localStorage.setItem("2getherLoop_couple_code", code);
+    
+    // Continue to login
+    login("user_a");
+    navigate("/");
+  };
+
+  const handleJoinPair = (code: string) => {
+    // In a real app, this would validate against Firebase
+    // For demo, just accept any code
     login("user_a");
     navigate("/");
   };
@@ -53,27 +82,35 @@ const Login: React.FC = () => {
           <h1 className="text-4xl font-bold mb-2 gradient-heading">2getherLoop</h1>
           <p className="text-xl text-purple-700">Track habits together, grow closer 👫</p>
           
-          {connectionStatus === 'connected' ? (
-            <Badge variant="outline" className="mt-2">
-              Cloud Sync Enabled
+          {isFirebaseSet ? (
+            <Badge variant="outline" className="mt-2 bg-green-50 text-green-800 border-green-300">
+              Cloud Sync Ready
             </Badge>
-          ) : connectionStatus === 'disconnected' ? (
+          ) : (
             <Badge variant="outline" className="mt-2 bg-amber-50 text-amber-800 border-amber-300">
               <CloudOff className="h-3 w-3 mr-1" />
               Offline Mode
             </Badge>
-          ) : null}
+          )}
         </div>
         
-        {connectionStatus === 'disconnected' && (
+        {!isFirebaseSet && (
           <Alert className="mb-4" variant="default">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Working Offline</AlertTitle>
             <AlertDescription>
-              No connection to the cloud database. Your data will be stored locally until connection is restored.
+              No connection to the cloud database. Your data will be stored locally until connection is configured.
             </AlertDescription>
           </Alert>
         )}
+        
+        {showCouplePairing ? (
+          <CouplePairing 
+            onCreatePair={handleCreatePair}
+            onJoinPair={handleJoinPair}
+            isConfigured={isFirebaseSet}
+          />
+        ) : null}
         
         <Card className="w-full shadow-lg">
           <CardHeader>
@@ -115,7 +152,7 @@ const Login: React.FC = () => {
                 className="w-full bg-gradient-to-r from-couple-purple to-couple-pink"
                 disabled={isLoading}
               >
-                {isLoading ? "Loading..." : "Start Tracking Together"}
+                {isLoading ? "Loading..." : (showCouplePairing ? "Next" : "Start Tracking Together")}
               </Button>
             </CardFooter>
           </form>

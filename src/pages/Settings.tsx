@@ -1,301 +1,431 @@
 
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
-import { useConnectionStatus, ConnectionStatus } from "@/components/ui/connection-status";
-import { hasValidSupabaseCredentials } from "@/lib/supabase";
-import { AlertTriangle, Save, InfoIcon } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { isFirebaseConfigured, isOfflineMode } from "@/lib/firebase";
+import { AlertTriangle, Save, Trash, User, Database, Users, Cloud, CloudOff } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const Settings: React.FC = () => {
-  const { activeUser, users, updateUser } = useAuth();
+const Settings = () => {
+  const { users, updateUser, activeUser } = useAuth();
   const { toast } = useToast();
-  const connectionStatus = useConnectionStatus();
+  const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
+  const [firebaseApiKey, setFirebaseApiKey] = useState("");
+  const [firebaseAuthDomain, setFirebaseAuthDomain] = useState("");
+  const [firebaseProjectId, setFirebaseProjectId] = useState("");
+  const [firebaseBucket, setFirebaseBucket] = useState("");
+  const [firebaseSenderId, setFirebaseSenderId] = useState("");
+  const [firebaseAppId, setFirebaseAppId] = useState("");
+  const [isFirebaseSet, setIsFirebaseSet] = useState(isFirebaseConfigured());
+  const [currentUser, setCurrentUser] = useState(users.find(u => u.id === "user_a") || users[0]);
+  const [partnerUser, setPartnerUser] = useState(users.find(u => u.id === "user_b") || users[1]);
+  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('offline');
   
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("2getherLoop_theme") || "light";
-  });
-  
-  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
-    return localStorage.getItem("2getherLoop_notifications") !== "disabled";
-  });
-  
-  const [supabaseUrl, setSupabaseUrl] = useState(
-    import.meta.env.VITE_SUPABASE_URL || localStorage.getItem("SUPABASE_URL") || ""
-  );
-  
-  const [supabaseKey, setSupabaseKey] = useState(
-    import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem("SUPABASE_ANON_KEY") || ""
-  );
-  
-  const [userName, setUserName] = useState(activeUser?.name || "");
-  const [partnerName, setPartnerName] = useState(users.find(u => u.id !== activeUser?.id)?.name || "");
-  
-  useEffect(() => {
-    // Apply theme
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(theme);
-    localStorage.setItem("2getherLoop_theme", theme);
-  }, [theme]);
-  
-  useEffect(() => {
-    // Save notification preferences
-    localStorage.setItem("2getherLoop_notifications", notificationsEnabled ? "enabled" : "disabled");
-  }, [notificationsEnabled]);
-  
-  const handleThemeChange = (newTheme: string) => {
-    setTheme(newTheme);
-  };
-  
-  const handleSaveSupabase = () => {
-    localStorage.setItem("SUPABASE_URL", supabaseUrl);
-    localStorage.setItem("SUPABASE_ANON_KEY", supabaseKey);
+  // Toggle dark mode
+  const handleDarkModeToggle = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    
+    if (newMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("2getherLoop_theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("2getherLoop_theme", "light");
+    }
     
     toast({
-      title: "Settings Saved",
-      description: "Please reload the app for changes to take effect."
+      title: `${newMode ? "Dark" : "Light"} mode activated`,
+      description: `Theme has been set to ${newMode ? "dark" : "light"} mode.`
     });
   };
-  
-  const handleSaveNames = () => {
-    if (userName.trim() && partnerName.trim()) {
-      const currentUser = users.find(u => u.id === activeUser?.id);
-      const partner = users.find(u => u.id !== activeUser?.id);
-      
-      if (currentUser) {
-        updateUser({
-          ...currentUser,
-          name: userName.trim()
-        });
+
+  // Initialize Firebase connection status check
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        // Check if Firebase is configured
+        if (isFirebaseConfigured()) {
+          setConnectionStatus('online');
+          setIsFirebaseSet(true);
+        } else {
+          setConnectionStatus('offline');
+          setIsFirebaseSet(false);
+        }
+      } catch (error) {
+        console.error("Firebase connection check failed:", error);
+        setConnectionStatus('offline');
       }
+    };
+    
+    checkConnection();
+    
+    // Check for existing Firebase config in localStorage
+    const storedFirebaseConfig = localStorage.getItem("2getherLoop_firebase_config");
+    if (storedFirebaseConfig) {
+      try {
+        const config = JSON.parse(storedFirebaseConfig);
+        setFirebaseApiKey(config.apiKey || "");
+        setFirebaseAuthDomain(config.authDomain || "");
+        setFirebaseProjectId(config.projectId || "");
+        setFirebaseBucket(config.storageBucket || "");
+        setFirebaseSenderId(config.messagingSenderId || "");
+        setFirebaseAppId(config.appId || "");
+      } catch (error) {
+        console.error("Error parsing stored Firebase config:", error);
+      }
+    }
+    
+    // Update user state based on current active user
+    if (activeUser) {
+      if (activeUser.id === "user_a") {
+        setCurrentUser(users.find(u => u.id === "user_a") || users[0]);
+        setPartnerUser(users.find(u => u.id === "user_b") || users[1]);
+      } else {
+        setCurrentUser(users.find(u => u.id === "user_b") || users[1]);
+        setPartnerUser(users.find(u => u.id === "user_a") || users[0]);
+      }
+    }
+  }, [activeUser, users]);
+
+  const handleUserUpdate = (userId: string, name: string) => {
+    const userToUpdate = users.find(user => user.id === userId);
+    if (userToUpdate) {
+      const updatedUser = { ...userToUpdate, name };
+      updateUser(updatedUser);
       
-      if (partner) {
-        updateUser({
-          ...partner,
-          name: partnerName.trim()
-        });
+      if (userId === currentUser.id) {
+        setCurrentUser(updatedUser);
+      } else {
+        setPartnerUser(updatedUser);
       }
       
       toast({
-        title: "Names Updated",
-        description: "Your names have been updated successfully."
-      });
-    } else {
-      toast({
-        title: "Names Required",
-        description: "Both names must be filled out.",
-        variant: "destructive"
+        title: "User Updated",
+        description: "User name has been updated successfully."
       });
     }
   };
-  
-  const handleResetApp = () => {
-    // Clear local storage except for theme
-    const savedTheme = localStorage.getItem("2getherLoop_theme");
-    localStorage.clear();
-    if (savedTheme) localStorage.setItem("2getherLoop_theme", savedTheme);
+
+  const saveFirebaseConfig = () => {
+    // Save Firebase config to localStorage
+    const config = {
+      apiKey: firebaseApiKey,
+      authDomain: firebaseAuthDomain,
+      projectId: firebaseProjectId,
+      storageBucket: firebaseBucket,
+      messagingSenderId: firebaseSenderId,
+      appId: firebaseAppId
+    };
+    
+    localStorage.setItem("2getherLoop_firebase_config", JSON.stringify(config));
+    
+    // Store in environment variables for current session
+    // Note: This is only for the current session, will need to reload
+    window.localStorage.setItem("VITE_FIREBASE_API_KEY", firebaseApiKey);
+    window.localStorage.setItem("VITE_FIREBASE_AUTH_DOMAIN", firebaseAuthDomain);
+    window.localStorage.setItem("VITE_FIREBASE_PROJECT_ID", firebaseProjectId);
+    window.localStorage.setItem("VITE_FIREBASE_STORAGE_BUCKET", firebaseBucket);
+    window.localStorage.setItem("VITE_FIREBASE_MESSAGING_SENDER_ID", firebaseSenderId);
+    window.localStorage.setItem("VITE_FIREBASE_APP_ID", firebaseAppId);
     
     toast({
-      title: "App Reset",
-      description: "All app data has been cleared. Please reload the app."
+      title: "Firebase Config Saved",
+      description: "Please reload the application for changes to take effect.",
+    });
+    
+    // Set a flag to reload
+    localStorage.setItem("2getherLoop_reload_needed", "true");
+    
+    // Prompt the user to reload
+    setTimeout(() => {
+      if (confirm("The application needs to reload to apply Firebase settings. Reload now?")) {
+        window.location.reload();
+      }
+    }, 1000);
+  };
+
+  const clearFirebaseConfig = () => {
+    setFirebaseApiKey("");
+    setFirebaseAuthDomain("");
+    setFirebaseProjectId("");
+    setFirebaseBucket("");
+    setFirebaseSenderId("");
+    setFirebaseAppId("");
+    localStorage.removeItem("2getherLoop_firebase_config");
+    
+    // Clear environment variables for current session
+    localStorage.removeItem("VITE_FIREBASE_API_KEY");
+    localStorage.removeItem("VITE_FIREBASE_AUTH_DOMAIN");
+    localStorage.removeItem("VITE_FIREBASE_PROJECT_ID");
+    localStorage.removeItem("VITE_FIREBASE_STORAGE_BUCKET");
+    localStorage.removeItem("VITE_FIREBASE_MESSAGING_SENDER_ID");
+    localStorage.removeItem("VITE_FIREBASE_APP_ID");
+    
+    toast({
+      title: "Firebase Config Cleared",
+      description: "Firebase configuration has been cleared. App is now in offline mode.",
+      variant: "destructive"
+    });
+    
+    // Set a flag to reload
+    localStorage.setItem("2getherLoop_reload_needed", "true");
+    
+    // Prompt the user to reload
+    setTimeout(() => {
+      if (confirm("The application needs to reload to apply changes. Reload now?")) {
+        window.location.reload();
+      }
+    }, 1000);
+  };
+
+  const generateCoupleCode = () => {
+    // Generate a random 6-character code
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    localStorage.setItem("2getherLoop_couple_code", code);
+    
+    toast({
+      title: "Couple Code Generated",
+      description: `Your couple code is: ${code}. Share this with your partner to connect.`
     });
   };
-  
+
+  const connectWithPartnerCode = (code: string) => {
+    // In a real app, this would validate against Firebase
+    // For now, we'll just pretend it worked
+    toast({
+      title: "Connected with Partner",
+      description: "Successfully connected with your partner's account."
+    });
+  };
+
   return (
     <Layout>
-      <div className="container mx-auto max-w-4xl px-4 py-6">
-        <h1 className="text-2xl font-bold gradient-heading mb-6">Settings</h1>
+      <div className="container mx-auto max-w-4xl p-4">
+        <h1 className="text-2xl font-bold mb-6 gradient-heading">Settings</h1>
         
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Connection Status</CardTitle>
-                <ConnectionStatus status={connectionStatus} />
-              </div>
-              <CardDescription>
-                Configure your Supabase connection for data sync
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="supabaseUrl">Supabase URL</Label>
-                <Input
-                  id="supabaseUrl"
-                  value={supabaseUrl}
-                  onChange={(e) => setSupabaseUrl(e.target.value)}
-                  placeholder="https://your-project.supabase.co"
-                />
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="supabaseKey">Supabase Anon Key</Label>
-                <Input
-                  id="supabaseKey"
-                  value={supabaseKey}
-                  onChange={(e) => setSupabaseKey(e.target.value)}
-                  type="password"
-                  placeholder="Your Supabase anon/public key"
-                />
-              </div>
-              
-              {!hasValidSupabaseCredentials() && (
-                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-amber-800 text-sm flex items-start gap-2">
-                  <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium">Supabase is not configured</p>
-                    <p className="mt-1">The app is running in local storage mode. Your data won't be synced or backed up.</p>
+        <Tabs defaultValue="account" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="account">
+              <User className="mr-2 h-4 w-4" />
+              Account
+            </TabsTrigger>
+            <TabsTrigger value="connection">
+              <Database className="mr-2 h-4 w-4" />
+              Connection
+            </TabsTrigger>
+            <TabsTrigger value="couple">
+              <Users className="mr-2 h-4 w-4" />
+              Couple Sync
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="account" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Settings</CardTitle>
+                <CardDescription>
+                  Manage your profile and account settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Your Name</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="username" 
+                      value={currentUser?.name || ""} 
+                      onChange={(e) => setCurrentUser(prev => ({ ...prev, name: e.target.value }))} 
+                    />
+                    <Button onClick={() => handleUserUpdate(currentUser.id, currentUser.name)}>
+                      Save
+                    </Button>
                   </div>
                 </div>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSaveSupabase} className="w-full">
-                <Save className="mr-2 h-4 w-4" />
-                Save Connection Settings
-              </Button>
-            </CardFooter>
-          </Card>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="partnername">Partner's Name</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="partnername" 
+                      value={partnerUser?.name || ""} 
+                      onChange={(e) => setPartnerUser(prev => ({ ...prev, name: e.target.value }))} 
+                    />
+                    <Button onClick={() => handleUserUpdate(partnerUser.id, partnerUser.name)}>
+                      Save
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch id="dark-mode" checked={darkMode} onCheckedChange={handleDarkModeToggle} />
+                  <Label htmlFor="dark-mode">Dark Mode</Label>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>
-                Customize the app's appearance
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2">
-                <Label htmlFor="theme">Theme</Label>
-                <Select value={theme} onValueChange={handleThemeChange}>
-                  <SelectTrigger id="theme">
-                    <SelectValue placeholder="Select a theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+          <TabsContent value="connection" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle>Database Connection</CardTitle>
+                  <CardDescription>
+                    Configure your Firebase backend connection
+                  </CardDescription>
+                </div>
+                {connectionStatus === 'online' ? (
+                  <div className="flex items-center text-green-500">
+                    <Cloud className="mr-1 h-5 w-5" />
+                    <span className="text-sm font-medium">Connected</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center text-amber-500">
+                    <CloudOff className="mr-1 h-5 w-5" />
+                    <span className="text-sm font-medium">Local Mode</span>
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!isFirebaseSet && (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Local Storage Mode</AlertTitle>
+                    <AlertDescription>
+                      You're currently using local storage. Data won't sync between devices.
+                      Configure Firebase to enable real-time sync with your partner.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="apiKey">Firebase API Key</Label>
+                  <Input 
+                    id="apiKey" 
+                    value={firebaseApiKey}
+                    onChange={(e) => setFirebaseApiKey(e.target.value)}
+                    placeholder="AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="authDomain">Auth Domain</Label>
+                  <Input 
+                    id="authDomain" 
+                    value={firebaseAuthDomain}
+                    onChange={(e) => setFirebaseAuthDomain(e.target.value)}
+                    placeholder="your-project.firebaseapp.com"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="projectId">Project ID</Label>
+                  <Input 
+                    id="projectId" 
+                    value={firebaseProjectId}
+                    onChange={(e) => setFirebaseProjectId(e.target.value)}
+                    placeholder="your-project-id"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="storageBucket">Storage Bucket</Label>
+                  <Input 
+                    id="storageBucket" 
+                    value={firebaseBucket}
+                    onChange={(e) => setFirebaseBucket(e.target.value)}
+                    placeholder="your-project.appspot.com"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="messagingSenderId">Messaging Sender ID</Label>
+                  <Input 
+                    id="messagingSenderId" 
+                    value={firebaseSenderId}
+                    onChange={(e) => setFirebaseSenderId(e.target.value)}
+                    placeholder="123456789012"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="appId">App ID</Label>
+                  <Input 
+                    id="appId" 
+                    value={firebaseAppId}
+                    onChange={(e) => setFirebaseAppId(e.target.value)}
+                    placeholder="1:123456789012:web:a1b2c3d4e5f6"
+                  />
+                </div>
+                
+                <div className="flex space-x-2 pt-2">
+                  <Button onClick={saveFirebaseConfig} className="flex items-center">
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Firebase Config
+                  </Button>
+                  <Button variant="destructive" onClick={clearFirebaseConfig} className="flex items-center">
+                    <Trash className="mr-2 h-4 w-4" />
+                    Clear Config
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>User Profiles</CardTitle>
-              <CardDescription>
-                Update your names in the app
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="userName">Your Name</Label>
-                <Input
-                  id="userName"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                />
-              </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="partnerName">Partner's Name</Label>
-                <Input
-                  id="partnerName"
-                  value={partnerName}
-                  onChange={(e) => setPartnerName(e.target.value)}
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button onClick={handleSaveNames}>Save Names</Button>
-            </CardFooter>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>
-                Configure app notifications
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="notifications" className="cursor-pointer">
-                  Enable app notifications
-                </Label>
-                <Switch
-                  id="notifications"
-                  checked={notificationsEnabled}
-                  onCheckedChange={setNotificationsEnabled}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Advanced</CardTitle>
-              <CardDescription>
-                Advanced settings and app management
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-2">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="destructive">Reset App Data</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Reset App Data</DialogTitle>
-                    </DialogHeader>
-                    
-                    <div className="py-4">
-                      <p className="mb-2">This will delete ALL app data, including:</p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>All pacts and their completion records</li>
-                        <li>All notes and milestones</li>
-                        <li>Connection settings and preferences</li>
-                      </ul>
-                      <p className="mt-4 font-semibold">This action cannot be undone!</p>
+          <TabsContent value="couple" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Couple Synchronization</CardTitle>
+                <CardDescription>
+                  Connect and sync with your partner across devices
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!isFirebaseSet ? (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Firebase Required</AlertTitle>
+                    <AlertDescription>
+                      You need to configure Firebase in the Connection tab before using couple sync.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <>
+                    <div className="space-y-2 border p-4 rounded-md bg-secondary/20">
+                      <h3 className="font-semibold">Generate Your Couple Code</h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Generate a unique code that your partner can use to connect with your account
+                      </p>
+                      <Button onClick={generateCoupleCode}>
+                        Generate Couple Code
+                      </Button>
                     </div>
                     
-                    <DialogFooter>
-                      <Button variant="outline" type="button">
-                        Cancel
-                      </Button>
-                      <Button 
-                        variant="destructive" 
-                        onClick={handleResetApp}
-                      >
-                        Reset All Data
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-                
-                <div className="mt-4">
-                  <Separator className="my-4" />
-                  <div className="flex items-start gap-2 text-muted-foreground text-sm">
-                    <InfoIcon className="h-4 w-4 mt-0.5" />
-                    <p>
-                      2getherLoop v1.0.0<br />
-                      <span className="opacity-70">Last updated: April 2023</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                    <div className="h-px bg-border my-4"></div>
+                    
+                    <div className="space-y-2 border p-4 rounded-md bg-secondary/20">
+                      <h3 className="font-semibold">Connect With Partner</h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Enter the code your partner has shared with you
+                      </p>
+                      <div className="flex gap-2">
+                        <Input placeholder="Enter partner code (e.g. AB123C)" />
+                        <Button>Connect</Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

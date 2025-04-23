@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import Layout from "@/components/layout/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -169,9 +170,9 @@ const PactTimeline: React.FC = () => {
                         {log.completedAt ? ` ${format(parseISO(log.completedAt), "h:mm a")}` : ""}
                       </p>
                       
-                      {log.proof && (
+                      {log.proofUrl && (
                         <div className="mt-2">
-                          {renderProof(log.proof.content)}
+                          {renderProof(log.proofUrl)}
                         </div>
                       )}
                       

@@ -67,6 +67,7 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
     addPactLog({
       pactId,
       userId: activeUser?.id || "user_a",
+      date: date.split('T')[0], // Add the required date property
       completedAt: date,
       status: "completed",
       comment: textProof
@@ -86,6 +87,7 @@ const ProofDialog: React.FC<ProofDialogProps> = ({ pactId, date, proofType, onCo
     addPactLog({
       pactId,
       userId: activeUser?.id || "user_a",
+      date: date.split('T')[0], // Add the required date property
       completedAt: date,
       status: "failed",
       comment: textProof

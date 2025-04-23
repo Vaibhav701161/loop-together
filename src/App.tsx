@@ -22,8 +22,10 @@ import Milestones from "./pages/Milestones";
 import Settings from "./pages/Settings";
 import MediaGallery from "./pages/MediaGallery";
 import { ReminderProvider } from "./context/ReminderContext";
+import { FirebaseProvider } from "./context/FirebaseContext";
 import { useEffect, useState } from "react";
 import { hasValidSupabaseCredentials } from "./lib/supabase";
+import { isFirebaseConfigured } from "./lib/firebase";
 
 const queryClient = new QueryClient();
 
@@ -48,17 +50,18 @@ const ThemeInitializer = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Component to handle Supabase configuration status
-const SupabaseConfigurationCheck = ({ children }: { children: React.ReactNode }) => {
+// Component to handle configuration status check
+const ConfigurationCheck = ({ children }: { children: React.ReactNode }) => {
   const [isChecked, setIsChecked] = useState(false);
   
   useEffect(() => {
-    // Check if Supabase is configured and redirect if needed
-    const isConfigured = hasValidSupabaseCredentials();
+    // Check if either Supabase or Firebase is configured
+    const isSupabaseConfigured = hasValidSupabaseCredentials();
+    const isFirebaseReady = isFirebaseConfigured();
     setIsChecked(true);
     
-    if (!isConfigured) {
-      console.warn("Supabase is not configured properly. Using local storage only.");
+    if (!isSupabaseConfigured && !isFirebaseReady) {
+      console.warn("Neither Supabase nor Firebase are configured properly. Using local storage only.");
     }
   }, []);
   
@@ -104,19 +107,21 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <ThemeInitializer>
-        <SupabaseConfigurationCheck>
-          <AuthProvider>
-            <PactProvider>
-              <NotesProvider>
-                <ReminderProvider>
-                  <Toaster />
-                  <Sonner />
-                  <AppRoutes />
-                </ReminderProvider>
-              </NotesProvider>
-            </PactProvider>
-          </AuthProvider>
-        </SupabaseConfigurationCheck>
+        <ConfigurationCheck>
+          <FirebaseProvider>
+            <AuthProvider>
+              <PactProvider>
+                <NotesProvider>
+                  <ReminderProvider>
+                    <Toaster />
+                    <Sonner />
+                    <AppRoutes />
+                  </ReminderProvider>
+                </NotesProvider>
+              </PactProvider>
+            </AuthProvider>
+          </FirebaseProvider>
+        </ConfigurationCheck>
       </ThemeInitializer>
     </TooltipProvider>
   </QueryClientProvider>
