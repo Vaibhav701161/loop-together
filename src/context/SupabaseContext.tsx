@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { hasValidSupabaseCredentials, initSupabaseSchema } from "@/lib/supabase";
+import { hasValidSupabaseCredentials, initSupabaseSchema, checkSupabaseConnection } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Pact, PactLog } from "@/types";
 import { getPacts, getPactLogs } from "@/lib/services/pactService";
@@ -9,9 +9,12 @@ interface SupabaseContextType {
   isConfigured: boolean;
   isOfflineMode: boolean;
   isLoading: boolean;
+  isConnected: boolean;
+  connectionStatus: 'connected' | 'disconnected' | 'checking' | 'unconfigured';
   pacts: Pact[];
   logs: PactLog[];
   refreshData: () => Promise<void>;
+  initializeSchema: () => Promise<boolean>;
 }
 
 const SupabaseContext = createContext<SupabaseContextType | undefined>(undefined);
@@ -27,9 +30,48 @@ export const useSupabase = () => {
 export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isConfigured, setIsConfigured] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking' | 'unconfigured'>('checking');
   const [pacts, setPacts] = useState<Pact[]>([]);
   const [logs, setLogs] = useState<PactLog[]>([]);
   const { toast } = useToast();
+
+  // Initialize database schema
+  const initializeSchema = async (): Promise<boolean> => {
+    if (!hasValidSupabaseCredentials()) {
+      setConnectionStatus('unconfigured');
+      return false;
+    }
+
+    try {
+      setConnectionStatus('checking');
+      // Initialize schema
+      const result = await initSupabaseSchema();
+      
+      if (result) {
+        // Check connection after schema initialization
+        const isConnected = await checkSupabaseConnection();
+        setIsConnected(isConnected);
+        setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+        
+        if (isConnected) {
+          toast({
+            title: "Database Connected",
+            description: "Successfully connected to the cloud database.",
+          });
+        }
+        
+        return isConnected;
+      } else {
+        setConnectionStatus('disconnected');
+        return false;
+      }
+    } catch (error) {
+      console.error("Error initializing Supabase schema:", error);
+      setConnectionStatus('disconnected');
+      return false;
+    }
+  };
 
   useEffect(() => {
     // Check if Supabase is configured
@@ -37,13 +79,15 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsConfigured(configured);
 
     if (configured) {
-      // Initialize database schema if needed
-      initSupabaseSchema()
-        .then(() => console.log("Supabase schema initialized"))
-        .catch(err => console.error("Error initializing Supabase schema:", err));
+      // Check connection and initialize if needed
+      checkConnection();
+    } else {
+      setConnectionStatus('unconfigured');
+      setIsLoading(false);
     }
 
-    // Load initial data
+    // Load initial data regardless of connection status
+    // This ensures we have data from localStorage even if offline
     refreshData();
     
     // Check for reload flag from Settings page
@@ -56,6 +100,16 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
     }
   }, []);
+  
+  const checkConnection = async () => {
+    const isConnected = await checkSupabaseConnection();
+    setIsConnected(isConnected);
+    setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+    
+    if (isConnected) {
+      initializeSchema();
+    }
+  };
   
   const refreshData = async () => {
     setIsLoading(true);
@@ -84,11 +138,14 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   return (
     <SupabaseContext.Provider value={{
       isConfigured,
-      isOfflineMode: !isConfigured,
+      isOfflineMode: !isConnected,
       isLoading,
+      isConnected,
+      connectionStatus,
       pacts,
       logs,
-      refreshData
+      refreshData,
+      initializeSchema
     }}>
       {children}
     </SupabaseContext.Provider>

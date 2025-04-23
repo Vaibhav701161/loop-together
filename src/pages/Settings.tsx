@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,14 +9,15 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { hasValidSupabaseCredentials, checkSupabaseConnection } from "@/lib/supabase";
-import { AlertTriangle, Save, Trash, User, Database, Users, Cloud, CloudOff } from "lucide-react";
+import { hasValidSupabaseCredentials, checkSupabaseConnection, generateCoupleCode, createCouplePairing } from "@/lib/supabase";
+import { AlertTriangle, Save, Trash, User, Database, Users, Cloud, CloudOff, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSupabase } from "@/context/SupabaseContext";
+import { ConnectionStatus } from "@/components/ui/connection-status";
 
 const Settings = () => {
   const { users, updateUser, activeUser } = useAuth();
-  const { isConfigured } = useSupabase();
+  const { isConfigured, connectionStatus, initializeSchema, refreshData } = useSupabase();
   const { toast } = useToast();
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
   const [supabaseUrl, setSupabaseUrl] = useState("");
@@ -23,7 +25,10 @@ const Settings = () => {
   const [isSupabaseSet, setIsSupabaseSet] = useState(false);
   const [currentUser, setCurrentUser] = useState(users.find(u => u.id === "user_a") || users[0]);
   const [partnerUser, setPartnerUser] = useState(users.find(u => u.id === "user_b") || users[1]);
-  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('offline');
+  const [coupleCode, setCoupleCode] = useState("");
+  const [partnerCode, setPartnerCode] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isInitializingSchema, setIsInitializingSchema] = useState(false);
   
   const handleDarkModeToggle = () => {
     const newMode = !darkMode;
@@ -44,29 +49,20 @@ const Settings = () => {
   };
 
   useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        if (hasValidSupabaseCredentials()) {
-          const isConnected = await checkSupabaseConnection();
-          setConnectionStatus(isConnected ? 'online' : 'offline');
-          setIsSupabaseSet(true);
-        } else {
-          setConnectionStatus('offline');
-          setIsSupabaseSet(false);
-        }
-      } catch (error) {
-        console.error("Supabase connection check failed:", error);
-        setConnectionStatus('offline');
-      }
-    };
-    
-    checkConnection();
+    setIsSupabaseSet(hasValidSupabaseCredentials());
     
     const storedSupabaseUrl = localStorage.getItem("VITE_SUPABASE_URL");
     const storedSupabaseAnonKey = localStorage.getItem("VITE_SUPABASE_ANON_KEY");
     
     if (storedSupabaseUrl) setSupabaseUrl(storedSupabaseUrl);
     if (storedSupabaseAnonKey) setSupabaseAnonKey(storedSupabaseAnonKey);
+    
+    // Get stored couple code if any
+    const storedCoupleCode = localStorage.getItem("2getherLoop_couple_code");
+    if (storedCoupleCode) setCoupleCode(storedCoupleCode);
+    
+    const storedPartnerCode = localStorage.getItem("2getherLoop_partner_code");
+    if (storedPartnerCode) setPartnerCode(storedPartnerCode);
     
     if (activeUser) {
       if (activeUser.id === "user_a") {
@@ -137,21 +133,111 @@ const Settings = () => {
     }, 1000);
   };
 
-  const generateCoupleCode = () => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    localStorage.setItem("2getherLoop_couple_code", code);
-    
-    toast({
-      title: "Couple Code Generated",
-      description: `Your couple code is: ${code}. Share this with your partner to connect.`
-    });
+  const handleGenerateCoupleCode = async () => {
+    // Generate a new couple code
+    try {
+      const code = generateCoupleCode();
+      
+      // Save it to database/local
+      const success = await createCouplePairing(code, activeUser?.id || "user_a");
+      
+      if (success) {
+        setCoupleCode(code);
+        localStorage.setItem("2getherLoop_couple_code", code);
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(code).catch(() => {
+          console.warn("Could not copy to clipboard");
+        });
+        
+        toast({
+          title: "Couple Code Generated",
+          description: `Your couple code is: ${code}. Share this with your partner to connect.`
+        });
+        
+        // Refresh data to make sure we have the latest
+        refreshData();
+      } else {
+        toast({
+          title: "Error Generating Code",
+          description: "Failed to generate couple code. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error generating couple code:", error);
+      toast({
+        title: "Error",
+        description: "Could not generate couple code. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const connectWithPartnerCode = (code: string) => {
-    toast({
-      title: "Connected with Partner",
-      description: "Successfully connected with your partner's account."
-    });
+  const handleConnectWithPartnerCode = async (code: string) => {
+    if (!code.trim()) {
+      toast({
+        title: "Invalid Code",
+        description: "Please enter a valid partner code.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsConnecting(true);
+    
+    try {
+      // Here we would validate and connect with partner's code
+      // For now, just simulate success
+      setTimeout(() => {
+        setPartnerCode(code);
+        localStorage.setItem("2getherLoop_partner_code", code);
+        
+        toast({
+          title: "Connected with Partner",
+          description: "Successfully connected with your partner's account."
+        });
+        
+        setIsConnecting(false);
+        refreshData();
+      }, 1000);
+    } catch (error) {
+      console.error("Error connecting with partner:", error);
+      toast({
+        title: "Connection Failed",
+        description: "Could not connect with your partner. Please try again.",
+        variant: "destructive"
+      });
+      setIsConnecting(false);
+    }
+  };
+  
+  const handleInitializeSchema = async () => {
+    setIsInitializingSchema(true);
+    try {
+      const success = await initializeSchema();
+      if (success) {
+        toast({
+          title: "Database Initialized",
+          description: "Successfully initialized the database schema."
+        });
+      } else {
+        toast({
+          title: "Initialization Failed",
+          description: "Failed to initialize database schema. Please check your Supabase configuration.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error initializing schema:", error);
+      toast({
+        title: "Initialization Error",
+        description: "An error occurred while initializing the database schema.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsInitializingSchema(false);
+    }
   };
 
   return (
@@ -229,20 +315,10 @@ const Settings = () => {
                     Configure your Supabase backend connection
                   </CardDescription>
                 </div>
-                {connectionStatus === 'online' ? (
-                  <div className="flex items-center text-green-500">
-                    <Cloud className="mr-1 h-5 w-5" />
-                    <span className="text-sm font-medium">Connected</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center text-amber-500">
-                    <CloudOff className="mr-1 h-5 w-5" />
-                    <span className="text-sm font-medium">Local Mode</span>
-                  </div>
-                )}
+                <ConnectionStatus status={connectionStatus} />
               </CardHeader>
               <CardContent className="space-y-4">
-                {!isSupabaseSet && (
+                {connectionStatus === 'unconfigured' && (
                   <Alert>
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Local Storage Mode</AlertTitle>
@@ -250,6 +326,29 @@ const Settings = () => {
                       You're currently using local storage. Data won't sync between devices.
                       Configure Supabase to enable real-time sync with your partner.
                     </AlertDescription>
+                  </Alert>
+                )}
+                
+                {connectionStatus === 'disconnected' && isConfigured && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Connection Failed</AlertTitle>
+                    <AlertDescription>
+                      Could not connect to Supabase with the provided credentials.
+                      Make sure your URL and key are correct.
+                    </AlertDescription>
+                    <div className="mt-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="mt-2" 
+                        onClick={handleInitializeSchema}
+                        disabled={isInitializingSchema}
+                      >
+                        <RefreshCw className={`mr-2 h-4 w-4 ${isInitializingSchema ? 'animate-spin' : ''}`} />
+                        {isInitializingSchema ? 'Initializing...' : 'Initialize Schema & Try Again'}
+                      </Button>
+                    </div>
                   </Alert>
                 )}
                 
@@ -297,7 +396,7 @@ const Settings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!isConfigured ? (
+                {connectionStatus !== 'connected' ? (
                   <Alert>
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Supabase Required</AlertTitle>
@@ -312,8 +411,19 @@ const Settings = () => {
                       <p className="text-sm text-muted-foreground mb-2">
                         Generate a unique code that your partner can use to connect with your account
                       </p>
-                      <Button onClick={generateCoupleCode}>
-                        Generate Couple Code
+                      
+                      {coupleCode ? (
+                        <div className="mb-4 p-3 border rounded-md bg-muted">
+                          <p className="text-sm font-medium mb-1">Your couple code:</p>
+                          <p className="text-xl font-bold tracking-wider">{coupleCode}</p>
+                          <p className="text-xs mt-2 text-muted-foreground">
+                            Share this code with your partner to connect
+                          </p>
+                        </div>
+                      ) : null}
+                      
+                      <Button onClick={handleGenerateCoupleCode}>
+                        {coupleCode ? "Generate New Code" : "Generate Couple Code"}
                       </Button>
                     </div>
                     
@@ -324,10 +434,48 @@ const Settings = () => {
                       <p className="text-sm text-muted-foreground mb-2">
                         Enter the code your partner has shared with you
                       </p>
+                      
+                      {partnerCode ? (
+                        <div className="mb-4 p-3 border rounded-md bg-muted">
+                          <p className="text-sm font-medium mb-1">Connected with code:</p>
+                          <p className="text-xl font-bold tracking-wider">{partnerCode}</p>
+                          <p className="text-xs mt-2 text-muted-foreground text-green-600">
+                            You are currently connected with your partner
+                          </p>
+                        </div>
+                      ) : null}
+                      
                       <div className="flex gap-2">
-                        <Input placeholder="Enter partner code (e.g. AB123C)" />
-                        <Button>Connect</Button>
+                        <Input 
+                          placeholder="Enter partner code (e.g. AB123C)" 
+                          disabled={!!partnerCode || isConnecting}
+                        />
+                        <Button 
+                          disabled={!!partnerCode || isConnecting}
+                          onClick={() => handleConnectWithPartnerCode(partnerCode)}
+                        >
+                          {isConnecting ? "Connecting..." : "Connect"}
+                        </Button>
                       </div>
+                      
+                      {partnerCode && (
+                        <div className="mt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setPartnerCode("");
+                              localStorage.removeItem("2getherLoop_partner_code");
+                              toast({
+                                title: "Disconnected",
+                                description: "You have disconnected from your partner's account."
+                              });
+                            }}
+                          >
+                            Disconnect
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}

@@ -20,9 +20,11 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
   const [generatedCode, setGeneratedCode] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleGenerateCode = async () => {
+    setError(null);
     setIsGenerating(true);
     
     try {
@@ -48,6 +50,7 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
         // Notify parent component
         onCreatePair(code);
       } else {
+        setError("Could not generate couple code. Please try again.");
         toast({
           title: "Error",
           description: "Could not generate couple code. Please try again.",
@@ -56,6 +59,7 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
       }
     } catch (error) {
       console.error("Error generating code:", error);
+      setError("Could not generate couple code. Please try again.");
       toast({
         title: "Error",
         description: "Could not generate couple code. Please try again.",
@@ -67,7 +71,10 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
   };
 
   const handleJoinWithCode = async () => {
+    setError(null);
+    
     if (!pairingCode.trim()) {
+      setError("Please enter a valid pairing code.");
       toast({
         title: "Invalid Code",
         description: "Please enter a valid pairing code.",
@@ -83,12 +90,17 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
       const partnerUserId = await validateCoupleCode(pairingCode.trim());
       
       if (partnerUserId) {
+        // Save the connection locally as well
+        localStorage.setItem("2getherLoop_partner_code", pairingCode.trim());
+        localStorage.setItem("2getherLoop_partner_id", partnerUserId);
+        
         toast({
           title: "Success",
           description: "Successfully connected with your partner's account.",
         });
         onJoinPair(pairingCode.trim());
       } else {
+        setError("The code you entered is invalid or expired.");
         toast({
           title: "Invalid Code",
           description: "The code you entered is invalid or expired.",
@@ -97,6 +109,7 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
       }
     } catch (error) {
       console.error("Error validating code:", error);
+      setError("Could not validate couple code. Please try again.");
       toast({
         title: "Error",
         description: "Could not validate couple code. Please try again.",
@@ -116,6 +129,15 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
           To pair with your partner, you need to configure Supabase in the Settings page.
           For now, you can continue in offline mode.
         </AlertDescription>
+        <div className="mt-2">
+          <Button 
+            variant="outline" 
+            className="mt-2" 
+            onClick={() => onCreatePair("LOCAL_MODE")}
+          >
+            Continue in Offline Mode
+          </Button>
+        </div>
       </Alert>
     );
   }
@@ -196,6 +218,14 @@ const CouplePairing: React.FC<CouplePairingProps> = ({ onCreatePair, onJoinPair,
             </div>
           </TabsContent>
         </Tabs>
+        
+        {error && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );

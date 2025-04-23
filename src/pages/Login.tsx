@@ -11,35 +11,36 @@ import { AlertCircle, CloudOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import CouplePairing from "@/components/auth/CouplePairing";
+import { useSupabase } from "@/context/SupabaseContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Login: React.FC = () => {
   const { users, updateUsers, login, isLoading } = useAuth();
+  const { isConfigured, connectionStatus, initializeSchema } = useSupabase();
   const [personA, setPersonA] = useState(users[0]?.name || "Person A");
   const [personB, setPersonB] = useState(users[1]?.name || "Person B");
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
-  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(false);
   const [showCouplePairing, setShowCouplePairing] = useState(false);
+  const [initializingDb, setInitializingDb] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Check Supabase configuration
-    const isConfigured = hasValidSupabaseCredentials();
-    setIsSupabaseConfigured(isConfigured);
-    
-    // Check Supabase connection
-    const checkConnection = async () => {
-      const isConnected = await checkSupabaseConnection();
-      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
-    };
-    
-    checkConnection();
-  }, []);
+    // If names were previously set and we're returning to login page,
+    // populate the fields
+    if (users[0]?.name) setPersonA(users[0].name);
+    if (users[1]?.name) setPersonB(users[1].name);
+  }, [users]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (personA.trim() === "" || personB.trim() === "") {
-      return; // Don't submit if names are empty
+      toast({
+        title: "Missing Names",
+        description: "Please enter names for both people.",
+        variant: "destructive"
+      });
+      return;
     }
     
     // Update user names
@@ -49,30 +50,49 @@ const Login: React.FC = () => {
     ];
     updateUsers(updatedUsers);
     
+    // Try to initialize schema if Supabase is configured
+    if (isConfigured && connectionStatus !== 'connected') {
+      setInitializingDb(true);
+      try {
+        await initializeSchema();
+        setInitializingDb(false);
+      } catch (error) {
+        console.error("Failed to initialize database:", error);
+        setInitializingDb(false);
+      }
+    }
+    
     // Check if we need to show couple pairing first
-    if (isSupabaseConfigured && !showCouplePairing) {
+    if (isConfigured && !showCouplePairing) {
       setShowCouplePairing(true);
     } else {
       // Log in as person A
       login("user_a");
-      navigate("/");
+      navigate("/dashboard");
     }
   };
 
   const handleCreatePair = (code: string) => {
-    // In a real app, this would create a record in Supabase
+    // Save the code locally
     localStorage.setItem("2getherLoop_couple_code", code);
+    toast({
+      title: "Couple Code Created",
+      description: `Your couple code is: ${code}. Share this with your partner.`
+    });
     
     // Continue to login
     login("user_a");
-    navigate("/");
+    navigate("/dashboard");
   };
 
   const handleJoinPair = (code: string) => {
-    // In a real app, this would validate against Supabase
-    // For demo, just accept any code
-    login("user_a");
-    navigate("/");
+    toast({
+      title: "Successfully Paired",
+      description: "You have successfully connected with your partner's account."
+    });
+    
+    login("user_b");
+    navigate("/dashboard");
   };
 
   return (
@@ -82,9 +102,13 @@ const Login: React.FC = () => {
           <h1 className="text-4xl font-bold mb-2 gradient-heading">2getherLoop</h1>
           <p className="text-xl text-purple-700">Track habits together, grow closer 👫</p>
           
-          {isSupabaseConfigured ? (
+          {connectionStatus === 'connected' ? (
             <Badge variant="outline" className="mt-2 bg-green-50 text-green-800 border-green-300">
               Cloud Sync Ready
+            </Badge>
+          ) : connectionStatus === 'checking' ? (
+            <Badge variant="outline" className="mt-2 bg-blue-50 text-blue-800 border-blue-300">
+              Checking Connection...
             </Badge>
           ) : (
             <Badge variant="outline" className="mt-2 bg-amber-50 text-amber-800 border-amber-300">
@@ -94,7 +118,7 @@ const Login: React.FC = () => {
           )}
         </div>
         
-        {!isSupabaseConfigured && (
+        {connectionStatus === 'unconfigured' && (
           <Alert className="mb-4" variant="default">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Working Offline</AlertTitle>
@@ -108,7 +132,7 @@ const Login: React.FC = () => {
           <CouplePairing 
             onCreatePair={handleCreatePair}
             onJoinPair={handleJoinPair}
-            isConfigured={isSupabaseConfigured}
+            isConfigured={isConfigured}
           />
         ) : null}
         
@@ -129,7 +153,7 @@ const Login: React.FC = () => {
                   onChange={(e) => setPersonA(e.target.value)}
                   placeholder="Enter person A's name"
                   className="border-couple-purple/50"
-                  disabled={isLoading}
+                  disabled={isLoading || initializingDb}
                   required
                 />
               </div>
@@ -141,7 +165,7 @@ const Login: React.FC = () => {
                   onChange={(e) => setPersonB(e.target.value)}
                   placeholder="Enter person B's name"
                   className="border-couple-orange/50"
-                  disabled={isLoading}
+                  disabled={isLoading || initializingDb}
                   required
                 />
               </div>
@@ -150,9 +174,9 @@ const Login: React.FC = () => {
               <Button 
                 type="submit" 
                 className="w-full bg-gradient-to-r from-couple-purple to-couple-pink"
-                disabled={isLoading}
+                disabled={isLoading || initializingDb}
               >
-                {isLoading ? "Loading..." : (showCouplePairing ? "Next" : "Start Tracking Together")}
+                {isLoading || initializingDb ? "Loading..." : (showCouplePairing ? "Next" : "Start Tracking Together")}
               </Button>
             </CardFooter>
           </form>

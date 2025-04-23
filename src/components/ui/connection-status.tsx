@@ -1,8 +1,7 @@
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, CloudOff, AlertCircle } from "lucide-react";
-import { checkSupabaseConnection, hasValidSupabaseCredentials } from "@/lib/supabase";
+import { CheckCircle, CloudOff, AlertCircle, Loader2 } from "lucide-react";
 
 interface ConnectionStatusProps {
   status: 'connected' | 'disconnected' | 'checking' | 'unconfigured';
@@ -30,7 +29,7 @@ export function ConnectionStatus({ status, className = "" }: ConnectionStatusPro
   
   if (status === 'unconfigured') {
     return (
-      <Badge variant="outline" className={`bg-red-50 text-red-800 border-red-300 ${className}`}>
+      <Badge variant="outline" className={`bg-gray-50 text-gray-800 border-gray-300 ${className}`}>
         <AlertCircle className="h-3 w-3 mr-1" />
         Not Configured
       </Badge>
@@ -39,7 +38,7 @@ export function ConnectionStatus({ status, className = "" }: ConnectionStatusPro
   
   return (
     <Badge variant="outline" className={`bg-blue-50 text-blue-800 border-blue-300 ${className}`}>
-      <AlertCircle className="h-3 w-3 mr-1" />
+      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
       Checking...
     </Badge>
   );
