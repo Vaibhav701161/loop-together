@@ -22,7 +22,8 @@ import Milestones from "./pages/Milestones";
 import Settings from "./pages/Settings";
 import MediaGallery from "./pages/MediaGallery";
 import { ReminderProvider } from "./context/ReminderContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { hasValidSupabaseCredentials } from "./lib/supabase";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,31 @@ const ThemeInitializer = ({ children }: { children: React.ReactNode }) => {
     const savedTheme = localStorage.getItem("2getherLoop_theme") || "light";
     document.documentElement.classList.add(savedTheme);
   }, []);
+  
+  return <>{children}</>;
+};
+
+// Component to handle Supabase configuration status
+const SupabaseConfigurationCheck = ({ children }: { children: React.ReactNode }) => {
+  const [isChecked, setIsChecked] = useState(false);
+  
+  useEffect(() => {
+    // Check if Supabase is configured and redirect if needed
+    const isConfigured = hasValidSupabaseCredentials();
+    setIsChecked(true);
+    
+    if (!isConfigured) {
+      console.warn("Supabase is not configured properly. Using local storage only.");
+    }
+  }, []);
+  
+  if (!isChecked) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <p className="text-lg">Loading application...</p>
+      </div>
+    </div>;
+  }
   
   return <>{children}</>;
 };
@@ -78,17 +104,19 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <ThemeInitializer>
-        <AuthProvider>
-          <PactProvider>
-            <NotesProvider>
-              <ReminderProvider>
-                <Toaster />
-                <Sonner />
-                <AppRoutes />
-              </ReminderProvider>
-            </NotesProvider>
-          </PactProvider>
-        </AuthProvider>
+        <SupabaseConfigurationCheck>
+          <AuthProvider>
+            <PactProvider>
+              <NotesProvider>
+                <ReminderProvider>
+                  <Toaster />
+                  <Sonner />
+                  <AppRoutes />
+                </ReminderProvider>
+              </NotesProvider>
+            </PactProvider>
+          </AuthProvider>
+        </SupabaseConfigurationCheck>
       </ThemeInitializer>
     </TooltipProvider>
   </QueryClientProvider>

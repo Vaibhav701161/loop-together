@@ -1,7 +1,6 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -11,11 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
 import { exportAppData, importAppData } from "@/utils/dataExport";
-import { checkSupabaseConnection } from "@/lib/supabase";
+import { checkSupabaseConnection, hasValidSupabaseCredentials } from "@/lib/supabase";
 import { 
   Download, Upload, Palette, Moon, Sun, CloudCog, 
   User, UserCog, Database, RefreshCw, ArrowLeftRight,
-  CheckCircle, XCircle, AlertCircle
+  CheckCircle, XCircle, AlertCircle, Settings as SettingsIcon
 } from "lucide-react";
 import {
   Select,
@@ -26,26 +25,17 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ConnectionStatus, useConnectionStatus } from "@/components/ui/connection-status";
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
   const { users, activeUser, updateUser, isError: authError } = useAuth();
-  const { isError: pactError } = usePacts();
+  const { isError: pactError, isConfigured } = usePacts();
   const [theme, setTheme] = useState(() => localStorage.getItem("2getherLoop_theme") || "light");
   const [importing, setImporting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+  const connectionStatus = useConnectionStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  useEffect(() => {
-    const checkConnection = async () => {
-      setConnectionStatus('checking');
-      const isConnected = await checkSupabaseConnection();
-      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
-    };
-    
-    checkConnection();
-  }, []);
-
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
     localStorage.setItem("2getherLoop_theme", newTheme);
@@ -118,18 +108,25 @@ const Settings: React.FC = () => {
   };
   
   const handleRetryConnection = async () => {
-    setConnectionStatus('checking');
+    if (!hasValidSupabaseCredentials()) {
+      toast({
+        title: "Supabase Not Configured",
+        description: "Please set up your Supabase URL and anonymous key first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     toast({
       title: "Checking connection",
-      description: "Attempting to reconnect to Supabase...",
+      description: "Attempting to connect to Supabase...",
     });
     
     const isConnected = await checkSupabaseConnection();
-    setConnectionStatus(isConnected ? 'connected' : 'disconnected');
     
     if (isConnected) {
       toast({
-        title: "Connection restored",
+        title: "Connection successful",
         description: "Successfully connected to Supabase",
       });
       // Refresh the page to reload data
@@ -148,15 +145,21 @@ const Settings: React.FC = () => {
       <div className="container mx-auto max-w-4xl px-4 py-6">
         <h1 className="text-2xl font-bold mb-6 gradient-heading">Settings</h1>
 
-        {(connectionStatus === 'disconnected' || authError || pactError) && (
-          <Alert className="mb-6" variant="destructive">
+        {(!isConfigured || connectionStatus === 'disconnected' || connectionStatus === 'unconfigured') && (
+          <Alert className="mb-6" variant={!isConfigured || connectionStatus === 'unconfigured' ? "destructive" : "warning"}>
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Connection Issue</AlertTitle>
+            <AlertTitle>
+              {!isConfigured || connectionStatus === 'unconfigured' ? "Supabase Not Configured" : "Connection Issue"}
+            </AlertTitle>
             <AlertDescription className="flex flex-col gap-2">
-              <p>There are issues with the online sync. Your data is being saved locally but not synced to the cloud.</p>
+              {!isConfigured || connectionStatus === 'unconfigured' ? (
+                <p>Supabase is not configured properly. Your data is saved locally but not synced to the cloud. Please update your Supabase settings.</p>
+              ) : (
+                <p>There are issues with the online sync. Your data is being saved locally but not synced to the cloud.</p>
+              )}
               <Button onClick={handleRetryConnection} variant="outline" size="sm" className="self-start">
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Retry Connection
+                {!isConfigured || connectionStatus === 'unconfigured' ? "Configure Supabase" : "Retry Connection"}
               </Button>
             </AlertDescription>
           </Alert>
@@ -237,42 +240,56 @@ const Settings: React.FC = () => {
                       Export, import, or reset your app data
                     </CardDescription>
                   </div>
-                  <Badge 
-                    variant={connectionStatus === 'connected' ? 'default' : 'destructive'}
-                    className="h-6"
-                  >
-                    {connectionStatus === 'checking' ? (
-                      'Checking...'
-                    ) : connectionStatus === 'connected' ? (
-                      <span className="flex items-center">
-                        <CheckCircle className="h-3 w-3 mr-1" /> Online
-                      </span>
-                    ) : (
-                      <span className="flex items-center">
-                        <XCircle className="h-3 w-3 mr-1" /> Offline
-                      </span>
-                    )}
-                  </Badge>
+                  <ConnectionStatus status={connectionStatus} className="h-6" />
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="p-4 rounded-lg border bg-muted/50">
                   <h3 className="font-medium mb-2 flex items-center">
                     <CloudCog className="h-4 w-4 mr-2" />
-                    Sync Status
+                    Supabase Configuration
                   </h3>
                   <div className="mb-4 text-sm">
                     {connectionStatus === 'connected' ? (
                       <p className="text-green-600 dark:text-green-400">
-                        Your data is being synced to the cloud. Changes will be available across devices.
+                        Your data is being synced to Supabase. Changes will be available across devices.
+                      </p>
+                    ) : connectionStatus === 'disconnected' ? (
+                      <p className="text-amber-600 dark:text-amber-400">
+                        Working in offline mode. Your data is saved locally but not synced to Supabase.
+                      </p>
+                    ) : connectionStatus === 'unconfigured' ? (
+                      <p className="text-red-600 dark:text-red-400">
+                        Supabase is not configured. Please set your Supabase URL and anonymous key.
                       </p>
                     ) : (
-                      <p className="text-amber-600 dark:text-amber-400">
-                        Working in offline mode. Your data is saved locally but not synced to the cloud.
-                      </p>
+                      <p>Checking connection status...</p>
                     )}
                   </div>
-                  {connectionStatus !== 'connected' && (
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="supabaseUrl">Supabase URL</Label>
+                      <Input 
+                        id="supabaseUrl" 
+                        placeholder="https://your-project.supabase.co"
+                        defaultValue={import.meta.env.VITE_SUPABASE_URL || ''}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="supabaseAnonKey">Supabase Anonymous Key</Label>
+                      <Input 
+                        id="supabaseAnonKey"
+                        type="password" 
+                        placeholder="your-anon-key"
+                        defaultValue={import.meta.env.VITE_SUPABASE_ANON_KEY || ''}
+                        className="mt-1"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      These values need to be set as environment variables for full functionality.
+                    </p>
                     <Button 
                       onClick={handleRetryConnection} 
                       variant="outline" 
@@ -281,7 +298,7 @@ const Settings: React.FC = () => {
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Check Connection
                     </Button>
-                  )}
+                  </div>
                 </div>
               
                 <div className="p-4 rounded-lg border bg-muted/50">
