@@ -9,21 +9,19 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { isFirebaseConfigured, isOfflineMode } from "@/lib/firebase";
+import { hasValidSupabaseCredentials, checkSupabaseConnection } from "@/lib/supabase";
 import { AlertTriangle, Save, Trash, User, Database, Users, Cloud, CloudOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useSupabase } from "@/context/SupabaseContext";
 
 const Settings = () => {
   const { users, updateUser, activeUser } = useAuth();
+  const { isConfigured } = useSupabase();
   const { toast } = useToast();
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
-  const [firebaseApiKey, setFirebaseApiKey] = useState("");
-  const [firebaseAuthDomain, setFirebaseAuthDomain] = useState("");
-  const [firebaseProjectId, setFirebaseProjectId] = useState("");
-  const [firebaseBucket, setFirebaseBucket] = useState("");
-  const [firebaseSenderId, setFirebaseSenderId] = useState("");
-  const [firebaseAppId, setFirebaseAppId] = useState("");
-  const [isFirebaseSet, setIsFirebaseSet] = useState(isFirebaseConfigured());
+  const [supabaseUrl, setSupabaseUrl] = useState("");
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState("");
+  const [isSupabaseSet, setIsSupabaseSet] = useState(false);
   const [currentUser, setCurrentUser] = useState(users.find(u => u.id === "user_a") || users[0]);
   const [partnerUser, setPartnerUser] = useState(users.find(u => u.id === "user_b") || users[1]);
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('offline');
@@ -47,41 +45,32 @@ const Settings = () => {
     });
   };
 
-  // Initialize Firebase connection status check
+  // Initialize Supabase connection status check
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        // Check if Firebase is configured
-        if (isFirebaseConfigured()) {
-          setConnectionStatus('online');
-          setIsFirebaseSet(true);
+        if (hasValidSupabaseCredentials()) {
+          const isConnected = await checkSupabaseConnection();
+          setConnectionStatus(isConnected ? 'online' : 'offline');
+          setIsSupabaseSet(true);
         } else {
           setConnectionStatus('offline');
-          setIsFirebaseSet(false);
+          setIsSupabaseSet(false);
         }
       } catch (error) {
-        console.error("Firebase connection check failed:", error);
+        console.error("Supabase connection check failed:", error);
         setConnectionStatus('offline');
       }
     };
     
     checkConnection();
     
-    // Check for existing Firebase config in localStorage
-    const storedFirebaseConfig = localStorage.getItem("2getherLoop_firebase_config");
-    if (storedFirebaseConfig) {
-      try {
-        const config = JSON.parse(storedFirebaseConfig);
-        setFirebaseApiKey(config.apiKey || "");
-        setFirebaseAuthDomain(config.authDomain || "");
-        setFirebaseProjectId(config.projectId || "");
-        setFirebaseBucket(config.storageBucket || "");
-        setFirebaseSenderId(config.messagingSenderId || "");
-        setFirebaseAppId(config.appId || "");
-      } catch (error) {
-        console.error("Error parsing stored Firebase config:", error);
-      }
-    }
+    // Check for existing Supabase config in localStorage
+    const storedSupabaseUrl = localStorage.getItem("VITE_SUPABASE_URL");
+    const storedSupabaseAnonKey = localStorage.getItem("VITE_SUPABASE_ANON_KEY");
+    
+    if (storedSupabaseUrl) setSupabaseUrl(storedSupabaseUrl);
+    if (storedSupabaseAnonKey) setSupabaseAnonKey(storedSupabaseAnonKey);
     
     // Update user state based on current active user
     if (activeUser) {
@@ -114,30 +103,13 @@ const Settings = () => {
     }
   };
 
-  const saveFirebaseConfig = () => {
-    // Save Firebase config to localStorage
-    const config = {
-      apiKey: firebaseApiKey,
-      authDomain: firebaseAuthDomain,
-      projectId: firebaseProjectId,
-      storageBucket: firebaseBucket,
-      messagingSenderId: firebaseSenderId,
-      appId: firebaseAppId
-    };
-    
-    localStorage.setItem("2getherLoop_firebase_config", JSON.stringify(config));
-    
-    // Store in environment variables for current session
-    // Note: This is only for the current session, will need to reload
-    window.localStorage.setItem("VITE_FIREBASE_API_KEY", firebaseApiKey);
-    window.localStorage.setItem("VITE_FIREBASE_AUTH_DOMAIN", firebaseAuthDomain);
-    window.localStorage.setItem("VITE_FIREBASE_PROJECT_ID", firebaseProjectId);
-    window.localStorage.setItem("VITE_FIREBASE_STORAGE_BUCKET", firebaseBucket);
-    window.localStorage.setItem("VITE_FIREBASE_MESSAGING_SENDER_ID", firebaseSenderId);
-    window.localStorage.setItem("VITE_FIREBASE_APP_ID", firebaseAppId);
+  const saveSupabaseConfig = () => {
+    // Store in localStorage for the current session
+    localStorage.setItem("VITE_SUPABASE_URL", supabaseUrl);
+    localStorage.setItem("VITE_SUPABASE_ANON_KEY", supabaseAnonKey);
     
     toast({
-      title: "Firebase Config Saved",
+      title: "Supabase Config Saved",
       description: "Please reload the application for changes to take effect.",
     });
     
@@ -146,32 +118,21 @@ const Settings = () => {
     
     // Prompt the user to reload
     setTimeout(() => {
-      if (confirm("The application needs to reload to apply Firebase settings. Reload now?")) {
+      if (confirm("The application needs to reload to apply Supabase settings. Reload now?")) {
         window.location.reload();
       }
     }, 1000);
   };
 
-  const clearFirebaseConfig = () => {
-    setFirebaseApiKey("");
-    setFirebaseAuthDomain("");
-    setFirebaseProjectId("");
-    setFirebaseBucket("");
-    setFirebaseSenderId("");
-    setFirebaseAppId("");
-    localStorage.removeItem("2getherLoop_firebase_config");
-    
-    // Clear environment variables for current session
-    localStorage.removeItem("VITE_FIREBASE_API_KEY");
-    localStorage.removeItem("VITE_FIREBASE_AUTH_DOMAIN");
-    localStorage.removeItem("VITE_FIREBASE_PROJECT_ID");
-    localStorage.removeItem("VITE_FIREBASE_STORAGE_BUCKET");
-    localStorage.removeItem("VITE_FIREBASE_MESSAGING_SENDER_ID");
-    localStorage.removeItem("VITE_FIREBASE_APP_ID");
+  const clearSupabaseConfig = () => {
+    setSupabaseUrl("");
+    setSupabaseAnonKey("");
+    localStorage.removeItem("VITE_SUPABASE_URL");
+    localStorage.removeItem("VITE_SUPABASE_ANON_KEY");
     
     toast({
-      title: "Firebase Config Cleared",
-      description: "Firebase configuration has been cleared. App is now in offline mode.",
+      title: "Supabase Config Cleared",
+      description: "Supabase configuration has been cleared. App is now in offline mode.",
       variant: "destructive"
     });
     
@@ -198,7 +159,7 @@ const Settings = () => {
   };
 
   const connectWithPartnerCode = (code: string) => {
-    // In a real app, this would validate against Firebase
+    // In a real app, this would validate against Supabase
     // For now, we'll just pretend it worked
     toast({
       title: "Connected with Partner",
@@ -278,7 +239,7 @@ const Settings = () => {
                 <div>
                   <CardTitle>Database Connection</CardTitle>
                   <CardDescription>
-                    Configure your Firebase backend connection
+                    Configure your Supabase backend connection
                   </CardDescription>
                 </div>
                 {connectionStatus === 'online' ? (
@@ -294,83 +255,44 @@ const Settings = () => {
                 )}
               </CardHeader>
               <CardContent className="space-y-4">
-                {!isFirebaseSet && (
+                {!isSupabaseSet && (
                   <Alert>
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Local Storage Mode</AlertTitle>
                     <AlertDescription>
                       You're currently using local storage. Data won't sync between devices.
-                      Configure Firebase to enable real-time sync with your partner.
+                      Configure Supabase to enable real-time sync with your partner.
                     </AlertDescription>
                   </Alert>
                 )}
                 
                 <div className="space-y-2">
-                  <Label htmlFor="apiKey">Firebase API Key</Label>
+                  <Label htmlFor="supabaseUrl">Supabase URL</Label>
                   <Input 
-                    id="apiKey" 
-                    value={firebaseApiKey}
-                    onChange={(e) => setFirebaseApiKey(e.target.value)}
-                    placeholder="AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6"
+                    id="supabaseUrl" 
+                    value={supabaseUrl}
+                    onChange={(e) => setSupabaseUrl(e.target.value)}
+                    placeholder="https://your-project-id.supabase.co"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="authDomain">Auth Domain</Label>
+                  <Label htmlFor="supabaseKey">Supabase Anon Key</Label>
                   <Input 
-                    id="authDomain" 
-                    value={firebaseAuthDomain}
-                    onChange={(e) => setFirebaseAuthDomain(e.target.value)}
-                    placeholder="your-project.firebaseapp.com"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="projectId">Project ID</Label>
-                  <Input 
-                    id="projectId" 
-                    value={firebaseProjectId}
-                    onChange={(e) => setFirebaseProjectId(e.target.value)}
-                    placeholder="your-project-id"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="storageBucket">Storage Bucket</Label>
-                  <Input 
-                    id="storageBucket" 
-                    value={firebaseBucket}
-                    onChange={(e) => setFirebaseBucket(e.target.value)}
-                    placeholder="your-project.appspot.com"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="messagingSenderId">Messaging Sender ID</Label>
-                  <Input 
-                    id="messagingSenderId" 
-                    value={firebaseSenderId}
-                    onChange={(e) => setFirebaseSenderId(e.target.value)}
-                    placeholder="123456789012"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="appId">App ID</Label>
-                  <Input 
-                    id="appId" 
-                    value={firebaseAppId}
-                    onChange={(e) => setFirebaseAppId(e.target.value)}
-                    placeholder="1:123456789012:web:a1b2c3d4e5f6"
+                    id="supabaseKey" 
+                    value={supabaseAnonKey}
+                    onChange={(e) => setSupabaseAnonKey(e.target.value)}
+                    placeholder="your-anon-key"
+                    type="password"
                   />
                 </div>
                 
                 <div className="flex space-x-2 pt-2">
-                  <Button onClick={saveFirebaseConfig} className="flex items-center">
+                  <Button onClick={saveSupabaseConfig} className="flex items-center">
                     <Save className="mr-2 h-4 w-4" />
-                    Save Firebase Config
+                    Save Supabase Config
                   </Button>
-                  <Button variant="destructive" onClick={clearFirebaseConfig} className="flex items-center">
+                  <Button variant="destructive" onClick={clearSupabaseConfig} className="flex items-center">
                     <Trash className="mr-2 h-4 w-4" />
                     Clear Config
                   </Button>
@@ -388,12 +310,12 @@ const Settings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!isFirebaseSet ? (
+                {!isConfigured ? (
                   <Alert>
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Firebase Required</AlertTitle>
+                    <AlertTitle>Supabase Required</AlertTitle>
                     <AlertDescription>
-                      You need to configure Firebase in the Connection tab before using couple sync.
+                      You need to configure Supabase in the Connection tab before using couple sync.
                     </AlertDescription>
                   </Alert>
                 ) : (

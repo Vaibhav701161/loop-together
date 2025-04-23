@@ -22,10 +22,9 @@ import Milestones from "./pages/Milestones";
 import Settings from "./pages/Settings";
 import MediaGallery from "./pages/MediaGallery";
 import { ReminderProvider } from "./context/ReminderContext";
-import { FirebaseProvider } from "./context/FirebaseContext";
+import { SupabaseProvider } from "./context/SupabaseContext";
 import { useEffect, useState } from "react";
 import { hasValidSupabaseCredentials } from "./lib/supabase";
-import { isFirebaseConfigured } from "./lib/firebase";
 
 const queryClient = new QueryClient();
 
@@ -55,13 +54,12 @@ const ConfigurationCheck = ({ children }: { children: React.ReactNode }) => {
   const [isChecked, setIsChecked] = useState(false);
   
   useEffect(() => {
-    // Check if either Supabase or Firebase is configured
+    // Check if Supabase is configured
     const isSupabaseConfigured = hasValidSupabaseCredentials();
-    const isFirebaseReady = isFirebaseConfigured();
     setIsChecked(true);
     
-    if (!isSupabaseConfigured && !isFirebaseReady) {
-      console.warn("Neither Supabase nor Firebase are configured properly. Using local storage only.");
+    if (!isSupabaseConfigured) {
+      console.warn("Supabase is not configured properly. Using local storage only.");
     }
   }, []);
   
@@ -108,7 +106,7 @@ const App = () => (
     <TooltipProvider>
       <ThemeInitializer>
         <ConfigurationCheck>
-          <FirebaseProvider>
+          <SupabaseProvider>
             <AuthProvider>
               <PactProvider>
                 <NotesProvider>
@@ -120,7 +118,7 @@ const App = () => (
                 </NotesProvider>
               </PactProvider>
             </AuthProvider>
-          </FirebaseProvider>
+          </SupabaseProvider>
         </ConfigurationCheck>
       </ThemeInitializer>
     </TooltipProvider>

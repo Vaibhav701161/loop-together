@@ -25,6 +25,12 @@ export async function initializeSupabaseDatabase() {
       console.error("Error creating pact_logs table:", logsError);
     }
     
+    // Create couple_codes table
+    const { error: codesError } = await supabase.rpc('create_couple_codes_table');
+    if (codesError && !codesError.message.includes('already exists')) {
+      console.error("Error creating couple_codes table:", codesError);
+    }
+    
     console.log("Database initialization complete");
     return true;
   } catch (error) {
@@ -58,7 +64,11 @@ export async function createDatabaseProcedures() {
     frequency TEXT NOT NULL,
     proofType TEXT NOT NULL,
     startDate TEXT NOT NULL,
-    createdAt TEXT NOT NULL
+    createdAt TEXT NOT NULL,
+    maxFailCount INTEGER DEFAULT 3,
+    punishment TEXT,
+    reward TEXT,
+    color TEXT
   );
   
   -- Pact logs table
@@ -72,6 +82,15 @@ export async function createDatabaseProcedures() {
     note TEXT,
     proofType TEXT,
     proofUrl TEXT
+  );
+  
+  -- Couple codes table
+  CREATE TABLE IF NOT EXISTS public.couple_codes (
+    code TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    partner_user_id TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    claimed_at TIMESTAMP WITH TIME ZONE
   );
   
   -- Create stored procedures
@@ -98,7 +117,11 @@ export async function createDatabaseProcedures() {
       frequency TEXT NOT NULL,
       proofType TEXT NOT NULL,
       startDate TEXT NOT NULL,
-      createdAt TEXT NOT NULL
+      createdAt TEXT NOT NULL,
+      maxFailCount INTEGER DEFAULT 3,
+      punishment TEXT,
+      reward TEXT,
+      color TEXT
     );
   END;
   $$ LANGUAGE plpgsql;
@@ -116,6 +139,19 @@ export async function createDatabaseProcedures() {
       note TEXT,
       proofType TEXT,
       proofUrl TEXT
+    );
+  END;
+  $$ LANGUAGE plpgsql;
+  
+  CREATE OR REPLACE FUNCTION public.create_couple_codes_table()
+  RETURNS void AS $$
+  BEGIN
+    CREATE TABLE IF NOT EXISTS public.couple_codes (
+      code TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      partner_user_id TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      claimed_at TIMESTAMP WITH TIME ZONE
     );
   END;
   $$ LANGUAGE plpgsql;

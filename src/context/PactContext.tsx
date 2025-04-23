@@ -1,16 +1,14 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Pact, PactLog, User, CompletionStatus } from "@/types";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import { supabase, hasValidSupabaseCredentials } from "@/lib/supabase";
-import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   getPacts as fetchPacts,
   getPactLogs as fetchPactLogs,
   addPact as createPact,
-  updatePact as updateFirebasePact,
-  deletePact as deleteFirebasePact,
+  updatePact as updateSupabasePact,
+  deletePact as deleteSupabasePact,
   addPactLog as createPactLog
 } from "@/lib/services/pactService";
 
@@ -59,9 +57,9 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isConfigured, setIsConfigured] = useState<boolean>(true);
   const { toast } = useToast();
 
-  // Check if either Firebase or Supabase is configured
+  // Check if Supabase is configured
   const hasBackend = () => {
-    return isFirebaseConfigured() || hasValidSupabaseCredentials();
+    return hasValidSupabaseCredentials();
   };
 
   useEffect(() => {
@@ -79,37 +77,16 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       try {
-        // Preferentially use Firebase if configured
-        if (isFirebaseConfigured()) {
-          const pactsData = await fetchPacts();
-          const completionsData = await fetchPactLogs();
-          
-          setPacts(pactsData as Pact[]);
-          setCompletions(completionsData as PactLog[]);
-          
-          // Still save to localStorage as backup
-          localStorage.setItem("2getherLoop_pacts", JSON.stringify(pactsData));
-          localStorage.setItem("2getherLoop_completions", JSON.stringify(completionsData));
-        } else {
-          // Fall back to Supabase if Firebase isn't configured but Supabase is
-          const { data: pactsData, error: pactsError } = await supabase
-            .from('pacts')
-            .select('*');
-          
-          if (pactsError) throw pactsError;
-          
-          const { data: completionsData, error: completionsError } = await supabase
-            .from('pact_logs')
-            .select('*');
-          
-          if (completionsError) throw completionsError;
-          
-          setPacts(pactsData as Pact[]);
-          setCompletions(completionsData as PactLog[]);
-          
-          localStorage.setItem("2getherLoop_pacts", JSON.stringify(pactsData));
-          localStorage.setItem("2getherLoop_completions", JSON.stringify(completionsData));
-        }
+        // Use Supabase to fetch data
+        const pactsData = await fetchPacts();
+        const completionsData = await fetchPactLogs();
+        
+        setPacts(pactsData as Pact[]);
+        setCompletions(completionsData as PactLog[]);
+        
+        // Still save to localStorage as backup
+        localStorage.setItem("2getherLoop_pacts", JSON.stringify(pactsData));
+        localStorage.setItem("2getherLoop_completions", JSON.stringify(completionsData));
       } catch (error) {
         console.error("Error loading data from backend:", error);
         toast({
@@ -143,59 +120,9 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Save pacts to backend when they change
   useEffect(() => {
-    const savePacts = async () => {
-      if (!pacts.length || isLoading) return;
-      
-      // Always save to localStorage as a backup
-      localStorage.setItem("2getherLoop_pacts", JSON.stringify(pacts));
-      
-      if (!hasBackend() || isError) return;
-      
-      try {
-        if (isFirebaseConfigured()) {
-          // Firebase handles individual pact updates in their respective functions
-          // We don't need to do bulk updates here
-        } else if (hasValidSupabaseCredentials()) {
-          await supabase.from('pacts').delete().neq('id', '0');
-          const { error } = await supabase.from('pacts').insert(pacts);
-          
-          if (error) throw error;
-        }
-      } catch (error) {
-        console.error("Failed to save pacts to backend:", error);
-      }
-    };
-    
-    savePacts();
-  }, [pacts, isLoading, isError]);
-
-  // Save completions to backend when they change
-  useEffect(() => {
-    const saveCompletions = async () => {
-      if (!completions.length || isLoading) return;
-      
-      // Always save to localStorage as a backup
-      localStorage.setItem("2getherLoop_completions", JSON.stringify(completions));
-      
-      if (!hasBackend() || isError) return;
-      
-      try {
-        if (isFirebaseConfigured()) {
-          // Firebase handles individual completion updates in their respective functions
-          // We don't need to do bulk updates here
-        } else if (hasValidSupabaseCredentials()) {
-          await supabase.from('pact_logs').delete().neq('id', '0');
-          const { error } = await supabase.from('pact_logs').insert(completions);
-          
-          if (error) throw error;
-        }
-      } catch (error) {
-        console.error("Failed to save completions to backend:", error);
-      }
-    };
-    
-    saveCompletions();
-  }, [completions, isLoading, isError]);
+    // This has been moved to individual functions that handle
+    // both Supabase and localStorage updates
+  }, []);
 
   const addPact = async (pact: Omit<Pact, "id">) => {
     const newPact: Pact = { 
@@ -206,16 +133,10 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     setPacts(prevPacts => [...prevPacts, newPact]);
-    localStorage.setItem("2getherLoop_pacts", JSON.stringify([...pacts, newPact]));
     
     if (hasBackend() && !isError) {
       try {
-        if (isFirebaseConfigured()) {
-          await createPact(pact);
-        } else if (hasValidSupabaseCredentials()) {
-          const { error } = await supabase.from('pacts').insert(newPact);
-          if (error) throw error;
-        }
+        await createPact(pact);
       } catch (error) {
         console.error("Error saving pact to backend:", error);
         toast({
@@ -230,22 +151,12 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updatePact = async (pact: Pact) => {
     setPacts(prevPacts => {
       const updated = prevPacts.map(p => (p.id === pact.id ? pact : p));
-      localStorage.setItem("2getherLoop_pacts", JSON.stringify(updated));
       return updated;
     });
     
     if (hasBackend() && !isError) {
       try {
-        if (isFirebaseConfigured()) {
-          await updateFirebasePact(pact);
-        } else if (hasValidSupabaseCredentials()) {
-          const { error } = await supabase
-            .from('pacts')
-            .update(pact)
-            .eq('id', pact.id);
-            
-          if (error) throw error;
-        }
+        await updateSupabasePact(pact);
       } catch (error) {
         console.error("Error updating pact in backend:", error);
         toast({
@@ -260,35 +171,17 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deletePact = async (pactId: string) => {
     setPacts(prevPacts => {
       const filtered = prevPacts.filter(pact => pact.id !== pactId);
-      localStorage.setItem("2getherLoop_pacts", JSON.stringify(filtered));
       return filtered;
     });
     
     setCompletions(prevCompletions => {
       const filtered = prevCompletions.filter(completion => completion.pactId !== pactId);
-      localStorage.setItem("2getherLoop_completions", JSON.stringify(filtered));
       return filtered;
     });
     
     if (hasBackend() && !isError) {
       try {
-        if (isFirebaseConfigured()) {
-          await deleteFirebasePact(pactId);
-        } else if (hasValidSupabaseCredentials()) {
-          const { error: pactError } = await supabase
-            .from('pacts')
-            .delete()
-            .eq('id', pactId);
-            
-          if (pactError) throw pactError;
-          
-          const { error: completionsError } = await supabase
-            .from('pact_logs')
-            .delete()
-            .eq('pactId', pactId);
-            
-          if (completionsError) throw completionsError;
-        }
+        await deleteSupabasePact(pactId);
       } catch (error) {
         console.error("Error deleting pact from backend:", error);
         toast({
@@ -302,7 +195,7 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addPactCompletion = async (data: any) => {
     const newCompletion: PactLog = {
-      id: `compl_${Date.now()}`,
+      id: uuidv4(),
       pactId: data.pactId,
       userId: data.userId,
       date: data.date || new Date().toISOString().split('T')[0],
@@ -313,23 +206,11 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...(data.proofUrl ? { proofUrl: data.proofUrl } : {})
     };
 
-    setCompletions(prevCompletions => {
-      const updated = [...prevCompletions, newCompletion];
-      localStorage.setItem("2getherLoop_completions", JSON.stringify(updated));
-      return updated;
-    });
+    setCompletions(prevCompletions => [...prevCompletions, newCompletion]);
     
     if (hasBackend() && !isError) {
       try {
-        if (isFirebaseConfigured()) {
-          await createPactLog(newCompletion);
-        } else if (hasValidSupabaseCredentials()) {
-          const { error } = await supabase
-            .from('pact_logs')
-            .insert(newCompletion);
-            
-          if (error) throw error;
-        }
+        await createPactLog(newCompletion);
       } catch (error) {
         console.error("Error saving completion to backend:", error);
         toast({
@@ -343,27 +224,15 @@ export const PactProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addPactLog = async (log: Omit<PactLog, "id">) => {
     const newLog: PactLog = {
-      id: `log_${Date.now()}`,
+      id: uuidv4(),
       ...log
     };
     
-    setCompletions(prev => {
-      const updated = [...prev, newLog];
-      localStorage.setItem("2getherLoop_completions", JSON.stringify(updated));
-      return updated;
-    });
+    setCompletions(prev => [...prev, newLog]);
     
     if (hasBackend() && !isError) {
       try {
-        if (isFirebaseConfigured()) {
-          await createPactLog(newLog);
-        } else if (hasValidSupabaseCredentials()) {
-          const { error } = await supabase
-            .from('pact_logs')
-            .insert(newLog);
-            
-          if (error) throw error;
-        }
+        await createPactLog(newLog);
       } catch (error) {
         console.error("Error saving log to backend:", error);
         toast({
