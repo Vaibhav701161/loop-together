@@ -1,36 +1,68 @@
-
 import { createClient } from '@supabase/supabase-js';
-import { useToast } from '@/hooks/use-toast';
 import { setupDatabaseSchema } from './supabase/schema';
 
 // Define default values for development and safety
-const DEFAULT_SUPABASE_URL = 'https://your-project-id.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'your-anon-key';
+const DEFAULT_SUPABASE_URL = 'https://example.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'example-key';
 
-// Get environment variables or use fallbacks
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 
-                    localStorage.getItem("VITE_SUPABASE_URL") || 
-                    DEFAULT_SUPABASE_URL;
+// Get cached client instance
+let supabaseInstance: any = null;
 
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 
-                        localStorage.getItem("VITE_SUPABASE_ANON_KEY") || 
-                        DEFAULT_SUPABASE_ANON_KEY;
-
-// Create the Supabase client with fallbacks to prevent blank screens
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
+/**
+ * Creates and returns a Supabase client with the latest credentials
+ */
+export function getSupabaseClient() {
+  // Get the latest credentials from localStorage
+  const supabaseUrl = localStorage.getItem("VITE_SUPABASE_URL") || 
+                      import.meta.env.VITE_SUPABASE_URL || 
+                      DEFAULT_SUPABASE_URL;
+  
+  const supabaseAnonKey = localStorage.getItem("VITE_SUPABASE_ANON_KEY") || 
+                          import.meta.env.VITE_SUPABASE_ANON_KEY || 
+                          DEFAULT_SUPABASE_ANON_KEY;
+  
+  // Create a new client if credentials changed or client doesn't exist
+  if (!supabaseInstance || 
+      supabaseInstance.supabaseUrl !== supabaseUrl || 
+      supabaseInstance.supabaseKey !== supabaseAnonKey) {
+    
+    console.log("Creating new Supabase client with URL:", supabaseUrl);
+    
+    // Create Supabase client
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    });
+    
+    // Cache instance and credentials
+    supabaseInstance = {
+      client,
+      supabaseUrl,
+      supabaseKey: supabaseAnonKey
+    };
   }
-});
+  
+  return supabaseInstance.client;
+}
+
+// Export supabase client for backward compatibility
+export const supabase = getSupabaseClient();
 
 /**
  * Checks if Supabase connection is valid
  */
 export async function checkSupabaseConnection(): Promise<boolean> {
   try {
+    // Get a fresh client with latest credentials
+    const client = getSupabaseClient();
+    
     // Attempt to query a simple value to check connection
-    const { data, error } = await supabase.from('pacts').select('id').limit(1);
+    const { data, error } = await client.from('pacts').select('id').limit(1);
+    
+    console.log("Supabase connection test result:", { data, error });
+    
     return !error;
   } catch (error) {
     console.error('Supabase connection check failed:', error);
@@ -42,15 +74,19 @@ export async function checkSupabaseConnection(): Promise<boolean> {
  * Helper to determine if we have valid credentials
  */
 export function hasValidSupabaseCredentials(): boolean {
-  const url = supabaseUrl || localStorage.getItem("VITE_SUPABASE_URL");
-  const key = supabaseAnonKey || localStorage.getItem("VITE_SUPABASE_ANON_KEY");
+  const url = localStorage.getItem("VITE_SUPABASE_URL") || import.meta.env.VITE_SUPABASE_URL;
+  const key = localStorage.getItem("VITE_SUPABASE_ANON_KEY") || import.meta.env.VITE_SUPABASE_ANON_KEY;
   
-  return (
+  const isValid = (
     url !== DEFAULT_SUPABASE_URL && 
     url !== '' && 
     key !== DEFAULT_SUPABASE_ANON_KEY && 
     key !== ''
   );
+  
+  console.log("Checking Supabase credentials validity:", { url, isValid });
+  
+  return isValid;
 }
 
 /**
@@ -64,7 +100,10 @@ export async function initSupabaseSchema() {
   }
   
   try {
-    const result = await setupDatabaseSchema();
+    // Get a fresh client with latest credentials
+    const client = getSupabaseClient();
+    
+    const result = await setupDatabaseSchema(client);
     
     if (!result.success) {
       console.error("Database initialization had errors:", result.errors);
@@ -94,11 +133,11 @@ export async function saveData<T extends { id: string }>(
   // Try to save to Supabase if credentials are valid
   if (hasValidSupabaseCredentials()) {
     try {
-      const { error } = await supabase.from(tableName).upsert(data);
+      const client = getSupabaseClient();
+      const { error } = await client.from(tableName).upsert(data);
       if (error) throw error;
     } catch (error) {
       console.error(`Error saving to ${tableName}:`, error);
-      // We don't use toast here to avoid circular dependencies
       console.warn(`Data saved locally but failed to sync online`);
     }
   }
@@ -116,7 +155,8 @@ export async function fetchData<T>(
   // Try fetching from Supabase
   if (hasValidSupabaseCredentials()) {
     try {
-      const { data, error } = await supabase.from(tableName).select('*');
+      const client = getSupabaseClient();
+      const { data, error } = await client.from(tableName).select('*');
       if (error) throw error;
       
       // Save the data to localStorage as a backup
@@ -152,7 +192,8 @@ export async function deleteData(
   // Delete from Supabase if credentials are valid
   if (hasValidSupabaseCredentials()) {
     try {
-      const { error } = await supabase.from(tableName).delete().eq('id', id);
+      const client = getSupabaseClient();
+      const { error } = await client.from(tableName).delete().eq('id', id);
       if (error) throw error;
       return true;
     } catch (error) {
@@ -184,7 +225,8 @@ export async function createCouplePairing(code: string, userId: string): Promise
   // Save to Supabase if available
   if (hasValidSupabaseCredentials()) {
     try {
-      const { error } = await supabase.from('couple_codes').insert({
+      const client = getSupabaseClient();
+      const { error } = await client.from('couple_codes').insert({
         code,
         user_id: userId,
         created_at: new Date().toISOString()
@@ -216,7 +258,8 @@ export async function validateCoupleCode(code: string): Promise<string | null> {
   // Check Supabase if available
   if (hasValidSupabaseCredentials()) {
     try {
-      const { data, error } = await supabase
+      const client = getSupabaseClient();
+      const { data, error } = await client
         .from('couple_codes')
         .select('user_id')
         .eq('code', code)
@@ -249,12 +292,14 @@ export async function uploadProofImage(file: File): Promise<string> {
   
   // Upload to Supabase Storage
   try {
+    const client = getSupabaseClient();
+    
     // Create a unique filename
     const extension = file.name.split('.').pop();
     const fileName = `${crypto.randomUUID()}.${extension}`;
     
     // Upload the file to the 'proofs' bucket
-    const { data, error } = await supabase.storage
+    const { data, error } = await client.storage
       .from('proofs')
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -264,7 +309,7 @@ export async function uploadProofImage(file: File): Promise<string> {
     if (error) throw error;
     
     // Get public URL for the uploaded file
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = client.storage
       .from('proofs')
       .getPublicUrl(fileName);
     
@@ -294,7 +339,8 @@ export function subscribeToChanges(
 ) {
   if (!hasValidSupabaseCredentials()) return () => {}; // Return no-op if not configured
   
-  const channel = supabase
+  const client = getSupabaseClient();
+  const channel = client
     .channel(`public:${tableName}`)
     .on('postgres_changes', {
       event: 'INSERT', 
@@ -321,6 +367,6 @@ export function subscribeToChanges(
   
   // Return unsubscribe function
   return () => {
-    supabase.removeChannel(channel);
+    client.removeChannel(channel);
   };
 }

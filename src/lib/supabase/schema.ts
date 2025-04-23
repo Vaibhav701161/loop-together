@@ -1,5 +1,5 @@
 
-import { supabase } from '../supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface SchemaSetupResult {
   success: boolean;
@@ -9,28 +9,42 @@ export interface SchemaSetupResult {
 /**
  * Sets up the complete database schema for the application
  */
-export async function setupDatabaseSchema(): Promise<SchemaSetupResult> {
+export async function setupDatabaseSchema(supabaseClient: SupabaseClient): Promise<SchemaSetupResult> {
   const errors: string[] = [];
   
   try {
+    console.log("Setting up database schema...");
+    
     // Create users table
-    const { error: usersError } = await supabase.rpc('create_users_table_if_not_exists');
-    if (usersError) errors.push(`Users table: ${usersError.message}`);
+    const { error: usersError } = await supabaseClient.rpc('create_users_table_if_not_exists');
+    if (usersError) {
+      console.error("Error creating users table:", usersError);
+      errors.push(`Users table: ${usersError.message}`);
+    }
     
     // Create pacts table
-    const { error: pactsError } = await supabase.rpc('create_pacts_table_if_not_exists');
-    if (pactsError) errors.push(`Pacts table: ${pactsError.message}`);
+    const { error: pactsError } = await supabaseClient.rpc('create_pacts_table_if_not_exists');
+    if (pactsError) {
+      console.error("Error creating pacts table:", pactsError);
+      errors.push(`Pacts table: ${pactsError.message}`);
+    }
     
     // Create pact_logs table
-    const { error: logsError } = await supabase.rpc('create_pact_logs_table_if_not_exists');
-    if (logsError) errors.push(`Pact logs table: ${logsError.message}`);
+    const { error: logsError } = await supabaseClient.rpc('create_pact_logs_table_if_not_exists');
+    if (logsError) {
+      console.error("Error creating pact_logs table:", logsError);
+      errors.push(`Pact logs table: ${logsError.message}`);
+    }
     
     // Create couple_codes table
-    const { error: codesError } = await supabase.rpc('create_couple_codes_table_if_not_exists');
-    if (codesError) errors.push(`Couple codes table: ${codesError.message}`);
+    const { error: codesError } = await supabaseClient.rpc('create_couple_codes_table_if_not_exists');
+    if (codesError) {
+      console.error("Error creating couple_codes table:", codesError);
+      errors.push(`Couple codes table: ${codesError.message}`);
+    }
     
     // Create storage bucket for proof uploads if it doesn't exist
-    const { error: storageError } = await supabase.storage.createBucket('proofs', {
+    const { error: storageError } = await supabaseClient.storage.createBucket('proofs', {
       public: true,
       fileSizeLimit: 10485760, // 10MB
       allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif']
@@ -38,14 +52,18 @@ export async function setupDatabaseSchema(): Promise<SchemaSetupResult> {
     
     // Ignore "already exists" errors
     if (storageError && !storageError.message.includes('already exists')) {
+      console.error("Error creating proofs storage bucket:", storageError);
       errors.push(`Storage bucket: ${storageError.message}`);
     }
+    
+    console.log("Database schema setup complete:", errors.length === 0 ? "success" : "with errors");
     
     return {
       success: errors.length === 0,
       errors
     };
   } catch (error: any) {
+    console.error("Schema setup failed with exception:", error);
     return {
       success: false,
       errors: [`Schema setup failed: ${error.message || 'Unknown error'}`]

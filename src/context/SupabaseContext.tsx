@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { hasValidSupabaseCredentials, initSupabaseSchema, checkSupabaseConnection } from "@/lib/supabase";
+import { hasValidSupabaseCredentials, initSupabaseSchema, checkSupabaseConnection, fetchData, getSupabaseClient } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Pact, PactLog } from "@/types";
 import { getPacts, getPactLogs } from "@/lib/services/pactService";
@@ -39,12 +39,16 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Initialize database schema
   const initializeSchema = async (): Promise<boolean> => {
     if (!hasValidSupabaseCredentials()) {
+      console.log("Cannot initialize schema: No valid credentials");
       setConnectionStatus('unconfigured');
       return false;
     }
 
     try {
       setConnectionStatus('checking');
+      // Get a fresh client with latest credentials
+      getSupabaseClient();
+      
       // Initialize schema
       const result = await initSupabaseSchema();
       
@@ -76,6 +80,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     // Check if Supabase is configured
     const configured = hasValidSupabaseCredentials();
+    console.log("Supabase configured status:", configured);
     setIsConfigured(configured);
 
     if (configured) {
@@ -102,12 +107,23 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
   
   const checkConnection = async () => {
-    const isConnected = await checkSupabaseConnection();
-    setIsConnected(isConnected);
-    setConnectionStatus(isConnected ? 'connected' : 'disconnected');
-    
-    if (isConnected) {
-      initializeSchema();
+    console.log("Checking Supabase connection...");
+    try {
+      // Force a fresh client
+      getSupabaseClient();
+      
+      const isConnected = await checkSupabaseConnection();
+      console.log("Supabase connection status:", isConnected);
+      setIsConnected(isConnected);
+      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+      
+      if (isConnected) {
+        initializeSchema();
+      }
+    } catch (error) {
+      console.error("Error checking Supabase connection:", error);
+      setIsConnected(false);
+      setConnectionStatus('disconnected');
     }
   };
   
@@ -115,6 +131,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsLoading(true);
     
     try {
+      console.log("Refreshing data...");
       // Get pacts and logs
       const [fetchedPacts, fetchedLogs] = await Promise.all([
         getPacts(),
@@ -123,6 +140,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       
       setPacts(fetchedPacts);
       setLogs(fetchedLogs);
+      console.log("Data refreshed:", { pacts: fetchedPacts.length, logs: fetchedLogs.length });
     } catch (error) {
       console.error("Error refreshing Supabase data:", error);
       toast({

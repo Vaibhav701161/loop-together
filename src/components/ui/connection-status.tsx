@@ -51,21 +51,28 @@ export function useConnectionStatus() {
   
   useEffect(() => {
     const checkConnection = async () => {
-      // First check if Supabase is configured
-      if (!hasValidSupabaseCredentials()) {
-        setStatus('unconfigured');
-        return;
+      try {
+        // First check if Supabase is configured
+        if (!hasValidSupabaseCredentials()) {
+          console.log("No valid Supabase credentials found");
+          setStatus('unconfigured');
+          return;
+        }
+        
+        setStatus('checking');
+        const isConnected = await checkSupabaseConnection();
+        console.log("Supabase connection check result:", isConnected);
+        setStatus(isConnected ? 'connected' : 'disconnected');
+      } catch (error) {
+        console.error("Error checking Supabase connection:", error);
+        setStatus('disconnected');
       }
-      
-      setStatus('checking');
-      const isConnected = await checkSupabaseConnection();
-      setStatus(isConnected ? 'connected' : 'disconnected');
     };
     
     checkConnection();
     
-    // Check connection every 5 minutes
-    const interval = setInterval(checkConnection, 5 * 60 * 1000);
+    // Check connection every 30 seconds (reduced from 5 minutes for faster feedback)
+    const interval = setInterval(checkConnection, 30 * 1000);
     return () => clearInterval(interval);
   }, []);
   
