@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -251,10 +250,6 @@ const Settings = () => {
               <User className="mr-2 h-4 w-4" />
               Account
             </TabsTrigger>
-            <TabsTrigger value="connection">
-              <Database className="mr-2 h-4 w-4" />
-              Connection
-            </TabsTrigger>
             <TabsTrigger value="couple">
               <Users className="mr-2 h-4 w-4" />
               Couple Sync
@@ -306,87 +301,6 @@ const Settings = () => {
             </Card>
           </TabsContent>
           
-          <TabsContent value="connection" className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <CardTitle>Database Connection</CardTitle>
-                  <CardDescription>
-                    Configure your Supabase backend connection
-                  </CardDescription>
-                </div>
-                <ConnectionStatus status={connectionStatus} />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {connectionStatus === 'unconfigured' && (
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Local Storage Mode</AlertTitle>
-                    <AlertDescription>
-                      You're currently using local storage. Data won't sync between devices.
-                      Configure Supabase to enable real-time sync with your partner.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                {connectionStatus === 'disconnected' && isConfigured && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Connection Failed</AlertTitle>
-                    <AlertDescription>
-                      Could not connect to Supabase with the provided credentials.
-                      Make sure your URL and key are correct.
-                    </AlertDescription>
-                    <div className="mt-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="mt-2" 
-                        onClick={handleInitializeSchema}
-                        disabled={isInitializingSchema}
-                      >
-                        <RefreshCw className={`mr-2 h-4 w-4 ${isInitializingSchema ? 'animate-spin' : ''}`} />
-                        {isInitializingSchema ? 'Initializing...' : 'Initialize Schema & Try Again'}
-                      </Button>
-                    </div>
-                  </Alert>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="supabaseUrl">Supabase URL</Label>
-                  <Input 
-                    id="supabaseUrl" 
-                    value={supabaseUrl}
-                    onChange={(e) => setSupabaseUrl(e.target.value)}
-                    placeholder="https://your-project-id.supabase.co"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="supabaseKey">Supabase Anon Key</Label>
-                  <Input 
-                    id="supabaseKey" 
-                    value={supabaseAnonKey}
-                    onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                    placeholder="your-anon-key"
-                    type="password"
-                  />
-                </div>
-                
-                <div className="flex space-x-2 pt-2">
-                  <Button onClick={saveSupabaseConfig} className="flex items-center">
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Supabase Config
-                  </Button>
-                  <Button variant="destructive" onClick={clearSupabaseConfig} className="flex items-center">
-                    <Trash className="mr-2 h-4 w-4" />
-                    Clear Config
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
           <TabsContent value="couple" className="space-y-4">
             <Card>
               <CardHeader>
@@ -396,15 +310,7 @@ const Settings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {connectionStatus !== 'connected' ? (
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Supabase Required</AlertTitle>
-                    <AlertDescription>
-                      You need to configure Supabase in the Connection tab before using couple sync.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
+                {connectionStatus === 'connected' ? (
                   <>
                     <div className="space-y-2 border p-4 rounded-md bg-secondary/20">
                       <h3 className="font-semibold">Generate Your Couple Code</h3>
@@ -478,6 +384,14 @@ const Settings = () => {
                       )}
                     </div>
                   </>
+                ) : (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Connecting to Database</AlertTitle>
+                    <AlertDescription>
+                      Please wait while we establish a connection to our cloud database...
+                    </AlertDescription>
+                  </Alert>
                 )}
               </CardContent>
             </Card>

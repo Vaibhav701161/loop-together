@@ -5,27 +5,28 @@ import './index.css';
 import { BrowserRouter } from 'react-router-dom';
 import { hasValidSupabaseCredentials, initSupabaseSchema, getSupabaseClient } from './lib/supabase.ts';
 
-// Initialize env variables if needed
-const envVariables = {
-  VITE_SUPABASE_URL: localStorage.getItem("VITE_SUPABASE_URL") || import.meta.env.VITE_SUPABASE_URL || '',
-  VITE_SUPABASE_ANON_KEY: localStorage.getItem("VITE_SUPABASE_ANON_KEY") || import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+// Use default credentials for development environment
+const defaultCredentials = {
+  url: 'https://vagdcjyvhiwcbsdjttvk.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhZ2RjanlkaGl3Y2JzZGp0dHZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDg3ODQ1NTIsImV4cCI6MjAyNDM2MDU1Mn0.NDm7ROOGUqp9O-YxKT1BvuoRWHBYwCMWMQ_WgMEDCBo'
 };
 
-// Log config status for debugging
+// Set default credentials if none exist
+if (!localStorage.getItem("VITE_SUPABASE_URL")) {
+  localStorage.setItem("VITE_SUPABASE_URL", defaultCredentials.url);
+}
+if (!localStorage.getItem("VITE_SUPABASE_ANON_KEY")) {
+  localStorage.setItem("VITE_SUPABASE_ANON_KEY", defaultCredentials.key);
+}
+
+// Force a client refresh and initialize schema
 if (hasValidSupabaseCredentials()) {
-  console.log('Supabase configuration detected:', {
-    url: envVariables.VITE_SUPABASE_URL.substring(0, 10) + '...',
-    hasKey: !!envVariables.VITE_SUPABASE_ANON_KEY
-  });
-  
-  // Force a client refresh to make sure we're using the latest credentials
+  console.log('Initializing database connection...');
   getSupabaseClient();
   
   initSupabaseSchema().catch(err => {
     console.error('Failed to initialize Supabase schema:', err);
   });
-} else {
-  console.warn('Supabase environment variables are not properly set. App will run in local storage mode.');
 }
 
 createRoot(document.getElementById("root")!).render(
