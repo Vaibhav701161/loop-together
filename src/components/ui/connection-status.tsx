@@ -71,8 +71,8 @@ export function useConnectionStatus() {
     
     checkConnection();
     
-    // Check connection every 30 seconds (reduced from 5 minutes for faster feedback)
-    const interval = setInterval(checkConnection, 30 * 1000);
+    // Check connection more frequently - every 15 seconds
+    const interval = setInterval(checkConnection, 15 * 1000);
     return () => clearInterval(interval);
   }, []);
   

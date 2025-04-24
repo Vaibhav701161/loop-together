@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { BrowserRouter } from 'react-router-dom';
 import { hasValidSupabaseCredentials, initSupabaseSchema, getSupabaseClient } from './lib/supabase.ts';
+import { initializeSupabaseDatabase } from './utils/initSupabase.ts';
 
 // Use default credentials for development environment
 const defaultCredentials = {
@@ -24,7 +25,8 @@ if (hasValidSupabaseCredentials()) {
   console.log('Initializing database connection...');
   getSupabaseClient();
   
-  initSupabaseSchema().catch(err => {
+  // Use the updated initializeSupabaseDatabase function instead
+  initializeSupabaseDatabase().catch(err => {
     console.error('Failed to initialize Supabase schema:', err);
   });
 }

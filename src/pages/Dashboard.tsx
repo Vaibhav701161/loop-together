@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePacts } from "@/context/PactContext";
@@ -15,8 +14,8 @@ import { Sparkles, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import SuccessAnimation from "@/components/pact/SuccessAnimation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ConnectionStatus } from "@/components/ui/connection-status";
-import { checkSupabaseConnection } from "@/lib/supabase";
+import { ConnectionStatus, useConnectionStatus } from "@/components/ui/connection-status";
+import { useSupabase } from "@/context/SupabaseContext";
 
 const Dashboard: React.FC = () => {
   const { activeUser, users } = useAuth();
@@ -29,20 +28,12 @@ const Dashboard: React.FC = () => {
     isLoading,
     isError
   } = usePacts();
+  const { isConfigured } = useSupabase();
   const navigate = useNavigate();
   const [selectedPact, setSelectedPact] = useState<Pact | null>(null);
   const [proofDialogOpen, setProofDialogOpen] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
-
-  useEffect(() => {
-    const checkConnection = async () => {
-      const isConnected = await checkSupabaseConnection();
-      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
-    };
-    
-    checkConnection();
-  }, []);
+  const connectionStatus = useConnectionStatus();
 
   if (!activeUser || isLoading) {
     return (
@@ -163,12 +154,12 @@ const Dashboard: React.FC = () => {
           
           <p className="text-muted-foreground mb-6">{today}</p>
           
-          {connectionStatus === 'disconnected' && (
+          {connectionStatus === 'disconnected' && isConfigured && (
             <Alert className="mb-6" variant="default">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Working Offline</AlertTitle>
+              <AlertTitle>Connecting to Cloud...</AlertTitle>
               <AlertDescription>
-                Your data is currently stored locally. Your changes will be synced when connection is restored.
+                Your data is currently stored locally. Your changes will be synced when connection is established.
               </AlertDescription>
             </Alert>
           )}
