@@ -1,404 +1,380 @@
-import React, { useState, useEffect } from "react";
-import Layout from "@/components/layout/Layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+import React, { useState } from "react";
+import { Bell, Key, User, CreditCard, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { hasValidSupabaseCredentials, checkSupabaseConnection, generateCoupleCode, createCouplePairing } from "@/lib/supabase";
-import { AlertTriangle, Save, Trash, User, Database, Users, Cloud, CloudOff, RefreshCw } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useSupabase } from "@/context/SupabaseContext";
-import { ConnectionStatus } from "@/components/ui/connection-status";
+import { Switch } from "@/components/ui/switch";
+import { useConnectionStatus } from "../components/ui/connection-status";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { hasValidSupabaseCredentials } from "@/lib/supabase";
 
-const Settings = () => {
-  const { users, updateUser, activeUser } = useAuth();
-  const { isConfigured, connectionStatus, initializeSchema, refreshData } = useSupabase();
-  const { toast } = useToast();
-  const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
-  const [supabaseUrl, setSupabaseUrl] = useState("");
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState("");
-  const [isSupabaseSet, setIsSupabaseSet] = useState(false);
-  const [currentUser, setCurrentUser] = useState(users.find(u => u.id === "user_a") || users[0]);
-  const [partnerUser, setPartnerUser] = useState(users.find(u => u.id === "user_b") || users[1]);
-  const [coupleCode, setCoupleCode] = useState("");
-  const [partnerCode, setPartnerCode] = useState("");
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isInitializingSchema, setIsInitializingSchema] = useState(false);
+const Settings: React.FC = () => {
+  const connectionStatus = useConnectionStatus();
+  const [isUpdating, setIsUpdating] = useState(false);
   
-  const handleDarkModeToggle = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
+  const handleUpdateProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdating(true);
     
-    if (newMode) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("2getherLoop_theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("2getherLoop_theme", "light");
-    }
-    
-    toast({
-      title: `${newMode ? "Dark" : "Light"} mode activated`,
-      description: `Theme has been set to ${newMode ? "dark" : "light"} mode.`
-    });
-  };
-
-  useEffect(() => {
-    setIsSupabaseSet(hasValidSupabaseCredentials());
-    
-    const storedSupabaseUrl = localStorage.getItem("VITE_SUPABASE_URL");
-    const storedSupabaseAnonKey = localStorage.getItem("VITE_SUPABASE_ANON_KEY");
-    
-    if (storedSupabaseUrl) setSupabaseUrl(storedSupabaseUrl);
-    if (storedSupabaseAnonKey) setSupabaseAnonKey(storedSupabaseAnonKey);
-    
-    // Get stored couple code if any
-    const storedCoupleCode = localStorage.getItem("2getherLoop_couple_code");
-    if (storedCoupleCode) setCoupleCode(storedCoupleCode);
-    
-    const storedPartnerCode = localStorage.getItem("2getherLoop_partner_code");
-    if (storedPartnerCode) setPartnerCode(storedPartnerCode);
-    
-    if (activeUser) {
-      if (activeUser.id === "user_a") {
-        setCurrentUser(users.find(u => u.id === "user_a") || users[0]);
-        setPartnerUser(users.find(u => u.id === "user_b") || users[1]);
-      } else {
-        setCurrentUser(users.find(u => u.id === "user_b") || users[1]);
-        setPartnerUser(users.find(u => u.id === "user_a") || users[0]);
-      }
-    }
-  }, [activeUser, users]);
-
-  const handleUserUpdate = (userId: string, name: string) => {
-    const userToUpdate = users.find(user => user.id === userId);
-    if (userToUpdate) {
-      const updatedUser = { ...userToUpdate, name };
-      updateUser(updatedUser);
-      
-      if (userId === currentUser.id) {
-        setCurrentUser(updatedUser);
-      } else {
-        setPartnerUser(updatedUser);
-      }
-      
-      toast({
-        title: "User Updated",
-        description: "User name has been updated successfully."
-      });
-    }
-  };
-
-  const saveSupabaseConfig = () => {
-    localStorage.setItem("VITE_SUPABASE_URL", supabaseUrl);
-    localStorage.setItem("VITE_SUPABASE_ANON_KEY", supabaseAnonKey);
-    
-    toast({
-      title: "Supabase Config Saved",
-      description: "Please reload the application for changes to take effect.",
-    });
-    
-    localStorage.setItem("2getherLoop_reload_needed", "true");
-    
+    // Simulate API call
     setTimeout(() => {
-      if (confirm("The application needs to reload to apply Supabase settings. Reload now?")) {
-        window.location.reload();
-      }
-    }, 1000);
-  };
-
-  const clearSupabaseConfig = () => {
-    setSupabaseUrl("");
-    setSupabaseAnonKey("");
-    localStorage.removeItem("VITE_SUPABASE_URL");
-    localStorage.removeItem("VITE_SUPABASE_ANON_KEY");
-    
-    toast({
-      title: "Supabase Config Cleared",
-      description: "Supabase configuration has been cleared. App is now in offline mode.",
-      variant: "destructive"
-    });
-    
-    localStorage.setItem("2getherLoop_reload_needed", "true");
-    
-    setTimeout(() => {
-      if (confirm("The application needs to reload to apply changes. Reload now?")) {
-        window.location.reload();
-      }
-    }, 1000);
-  };
-
-  const handleGenerateCoupleCode = async () => {
-    // Generate a new couple code
-    try {
-      const code = generateCoupleCode();
-      
-      // Save it to database/local
-      const success = await createCouplePairing(code, activeUser?.id || "user_a");
-      
-      if (success) {
-        setCoupleCode(code);
-        localStorage.setItem("2getherLoop_couple_code", code);
-        
-        // Copy to clipboard
-        navigator.clipboard.writeText(code).catch(() => {
-          console.warn("Could not copy to clipboard");
-        });
-        
-        toast({
-          title: "Couple Code Generated",
-          description: `Your couple code is: ${code}. Share this with your partner to connect.`
-        });
-        
-        // Refresh data to make sure we have the latest
-        refreshData();
-      } else {
-        toast({
-          title: "Error Generating Code",
-          description: "Failed to generate couple code. Please try again.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error("Error generating couple code:", error);
-      toast({
-        title: "Error",
-        description: "Could not generate couple code. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleConnectWithPartnerCode = async (code: string) => {
-    if (!code.trim()) {
-      toast({
-        title: "Invalid Code",
-        description: "Please enter a valid partner code.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setIsConnecting(true);
-    
-    try {
-      // Here we would validate and connect with partner's code
-      // For now, just simulate success
-      setTimeout(() => {
-        setPartnerCode(code);
-        localStorage.setItem("2getherLoop_partner_code", code);
-        
-        toast({
-          title: "Connected with Partner",
-          description: "Successfully connected with your partner's account."
-        });
-        
-        setIsConnecting(false);
-        refreshData();
-      }, 1000);
-    } catch (error) {
-      console.error("Error connecting with partner:", error);
-      toast({
-        title: "Connection Failed",
-        description: "Could not connect with your partner. Please try again.",
-        variant: "destructive"
-      });
-      setIsConnecting(false);
-    }
+      setIsUpdating(false);
+      // Show success message
+    }, 1500);
   };
   
-  const handleInitializeSchema = async () => {
-    setIsInitializingSchema(true);
-    try {
-      const success = await initializeSchema();
-      if (success) {
-        toast({
-          title: "Database Initialized",
-          description: "Successfully initialized the database schema."
-        });
-      } else {
-        toast({
-          title: "Initialization Failed",
-          description: "Failed to initialize database schema. Please check your Supabase configuration.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error("Error initializing schema:", error);
-      toast({
-        title: "Initialization Error",
-        description: "An error occurred while initializing the database schema.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsInitializingSchema(false);
-    }
-  };
-
   return (
-    <Layout>
-      <div className="container mx-auto max-w-4xl p-4">
-        <h1 className="text-2xl font-bold mb-6 gradient-heading">Settings</h1>
+    <div className="container mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Settings</h1>
+      
+      <div className="flex flex-col md:flex-row gap-6">
+        <div className="w-full md:w-1/4">
+          <Tabs defaultValue="profile" orientation="vertical" className="w-full">
+            <TabsList className="flex flex-col items-start h-auto bg-transparent space-y-1">
+              <TabsTrigger value="profile" className="w-full justify-start">
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </TabsTrigger>
+              <TabsTrigger value="security" className="w-full justify-start">
+                <Key className="mr-2 h-4 w-4" />
+                Security
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="w-full justify-start">
+                <Bell className="mr-2 h-4 w-4" />
+                Notifications
+              </TabsTrigger>
+              <TabsTrigger value="billing" className="w-full justify-start">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Billing
+              </TabsTrigger>
+              <TabsTrigger value="connections" className="w-full justify-start">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Connections
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         
-        <Tabs defaultValue="account" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="account">
-              <User className="mr-2 h-4 w-4" />
-              Account
-            </TabsTrigger>
-            <TabsTrigger value="couple">
-              <Users className="mr-2 h-4 w-4" />
-              Couple Sync
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="account" className="space-y-4">
-            <Card>
+        <div className="flex-1">
+          <Card>
+            <TabsContent value="profile" className="mt-0">
               <CardHeader>
                 <CardTitle>Profile Settings</CardTitle>
                 <CardDescription>
-                  Manage your profile and account settings
+                  Update your personal information and public profile
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleUpdateProfile} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input id="firstName" defaultValue="Alex" />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input id="lastName" defaultValue="Johnson" />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" defaultValue="alex@example.com" />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="bio">Bio</Label>
+                    <textarea 
+                      id="bio" 
+                      className="w-full min-h-[100px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
+                      defaultValue="AI enthusiast interested in generative models and productivity tools."
+                    ></textarea>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch id="public-profile" />
+                    <Label htmlFor="public-profile">Make profile public</Label>
+                  </div>
+                  
+                  <Button type="submit" disabled={isUpdating}>
+                    {isUpdating ? "Saving..." : "Save Changes"}
+                  </Button>
+                </form>
+              </CardContent>
+            </TabsContent>
+            
+            <TabsContent value="security">
+              <CardHeader>
+                <CardTitle>Security Settings</CardTitle>
+                <CardDescription>
+                  Manage your password and security preferences
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Your Name</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      id="username" 
-                      value={currentUser?.name || ""} 
-                      onChange={(e) => setCurrentUser(prev => ({ ...prev, name: e.target.value }))} 
-                    />
-                    <Button onClick={() => handleUserUpdate(currentUser.id, currentUser.name)}>
-                      Save
-                    </Button>
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Change Password</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="currentPassword">Current Password</Label>
+                      <Input id="currentPassword" type="password" />
+                    </div>
+                    <div>
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <Input id="newPassword" type="password" />
+                    </div>
+                    <div>
+                      <Label htmlFor="confirmPassword">Confirm Password</Label>
+                      <Input id="confirmPassword" type="password" />
+                    </div>
+                    <Button>Update Password</Button>
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="partnername">Partner's Name</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      id="partnername" 
-                      value={partnerUser?.name || ""} 
-                      onChange={(e) => setPartnerUser(prev => ({ ...prev, name: e.target.value }))} 
-                    />
-                    <Button onClick={() => handleUserUpdate(partnerUser.id, partnerUser.name)}>
-                      Save
-                    </Button>
+                <div className="pt-6 border-t">
+                  <h3 className="text-lg font-medium mb-4">Two-Factor Authentication</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Add an extra layer of security to your account
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <Switch id="enable-2fa" />
+                    <Label htmlFor="enable-2fa">Enable two-factor authentication</Label>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Switch id="dark-mode" checked={darkMode} onCheckedChange={handleDarkModeToggle} />
-                  <Label htmlFor="dark-mode">Dark Mode</Label>
                 </div>
               </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="couple" className="space-y-4">
-            <Card>
+            </TabsContent>
+            
+            <TabsContent value="notifications">
               <CardHeader>
-                <CardTitle>Couple Synchronization</CardTitle>
+                <CardTitle>Notification Preferences</CardTitle>
                 <CardDescription>
-                  Connect and sync with your partner across devices
+                  Manage how and when you receive notifications
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {connectionStatus === 'connected' ? (
-                  <>
-                    <div className="space-y-2 border p-4 rounded-md bg-secondary/20">
-                      <h3 className="font-semibold">Generate Your Couple Code</h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Generate a unique code that your partner can use to connect with your account
-                      </p>
-                      
-                      {coupleCode ? (
-                        <div className="mb-4 p-3 border rounded-md bg-muted">
-                          <p className="text-sm font-medium mb-1">Your couple code:</p>
-                          <p className="text-xl font-bold tracking-wider">{coupleCode}</p>
-                          <p className="text-xs mt-2 text-muted-foreground">
-                            Share this code with your partner to connect
-                          </p>
-                        </div>
-                      ) : null}
-                      
-                      <Button onClick={handleGenerateCoupleCode}>
-                        {coupleCode ? "Generate New Code" : "Generate Couple Code"}
-                      </Button>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">Email Notifications</p>
+                      <p className="text-sm text-muted-foreground">Receive updates via email</p>
                     </div>
-                    
-                    <div className="h-px bg-border my-4"></div>
-                    
-                    <div className="space-y-2 border p-4 rounded-md bg-secondary/20">
-                      <h3 className="font-semibold">Connect With Partner</h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Enter the code your partner has shared with you
-                      </p>
-                      
-                      {partnerCode ? (
-                        <div className="mb-4 p-3 border rounded-md bg-muted">
-                          <p className="text-sm font-medium mb-1">Connected with code:</p>
-                          <p className="text-xl font-bold tracking-wider">{partnerCode}</p>
-                          <p className="text-xs mt-2 text-muted-foreground text-green-600">
-                            You are currently connected with your partner
-                          </p>
+                    <Switch id="email-notifications" defaultChecked />
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">New Tool Alerts</p>
+                      <p className="text-sm text-muted-foreground">Notify when new tools are added</p>
+                    </div>
+                    <Switch id="new-tool-alerts" defaultChecked />
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">Tool Updates</p>
+                      <p className="text-sm text-muted-foreground">Notify when tools you use are updated</p>
+                    </div>
+                    <Switch id="tool-updates" defaultChecked />
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">Marketing Communications</p>
+                      <p className="text-sm text-muted-foreground">Receive promotional content</p>
+                    </div>
+                    <Switch id="marketing" />
+                  </div>
+                </div>
+              </CardContent>
+            </TabsContent>
+            
+            <TabsContent value="billing">
+              <CardHeader>
+                <CardTitle>Billing Information</CardTitle>
+                <CardDescription>
+                  Manage your subscription and payment methods
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">Current Plan</h3>
+                    <div className="bg-muted/50 border rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <p className="font-medium">Free Plan</p>
+                          <p className="text-sm text-muted-foreground">500 credits/month</p>
                         </div>
-                      ) : null}
-                      
-                      <div className="flex gap-2">
-                        <Input 
-                          placeholder="Enter partner code (e.g. AB123C)" 
-                          disabled={!!partnerCode || isConnecting}
-                        />
-                        <Button 
-                          disabled={!!partnerCode || isConnecting}
-                          onClick={() => handleConnectWithPartnerCode(partnerCode)}
-                        >
-                          {isConnecting ? "Connecting..." : "Connect"}
+                        <Button>Upgrade</Button>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full">
+                        <div className="h-2 bg-primary rounded-full w-[65%]"></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>325 / 500 credits used</span>
+                        <span>Resets in 12 days</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">Payment Methods</h3>
+                    <div className="border rounded-lg divide-y">
+                      <div className="p-4 flex justify-between items-center">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 bg-muted flex items-center justify-center rounded mr-3">
+                            <CreditCard className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="font-medium">Visa ending in 4242</p>
+                            <p className="text-xs text-muted-foreground">Expires 12/2025</p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm">Edit</Button>
+                          <Button variant="ghost" size="sm">Remove</Button>
+                        </div>
+                      </div>
+                    </div>
+                    <Button variant="outline" className="mt-3">
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Add Payment Method
+                    </Button>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">Billing History</h3>
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted/50 px-4 py-2 text-sm font-medium grid grid-cols-3">
+                        <span>Date</span>
+                        <span>Amount</span>
+                        <span>Status</span>
+                      </div>
+                      <div className="divide-y">
+                        <div className="px-4 py-3 grid grid-cols-3 text-sm">
+                          <span>Nov 15, 2023</span>
+                          <span>$0.00</span>
+                          <span className="text-green-600">Free Plan</span>
+                        </div>
+                        <div className="px-4 py-3 grid grid-cols-3 text-sm">
+                          <span>Oct 15, 2023</span>
+                          <span>$0.00</span>
+                          <span className="text-green-600">Free Plan</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </TabsContent>
+            
+            <TabsContent value="connections">
+              <CardHeader>
+                <CardTitle>Connected Services</CardTitle>
+                <CardDescription>
+                  Manage integrations with external services
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">API Credentials</h3>
+                    <div className="p-4 bg-muted/30 rounded-lg mb-4">
+                      <p className="text-sm mb-2">
+                        Your API key allows you to integrate AI ToolKart with other services
+                      </p>
+                      <div className="flex items-center mb-2">
+                        <div className="flex-grow bg-background rounded border px-3 py-2 font-mono text-sm">
+                          ••••••••••••••••••••••••••6f3a
+                        </div>
+                        <Button variant="outline" className="ml-2">
+                          Copy
+                        </Button>
+                        <Button variant="ghost" className="ml-2">
+                          Regenerate
                         </Button>
                       </div>
-                      
-                      {partnerCode && (
-                        <div className="mt-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => {
-                              setPartnerCode("");
-                              localStorage.removeItem("2getherLoop_partner_code");
-                              toast({
-                                title: "Disconnected",
-                                description: "You have disconnected from your partner's account."
-                              });
-                            }}
-                          >
-                            Disconnect
-                          </Button>
-                        </div>
-                      )}
                     </div>
-                  </>
-                ) : (
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Connecting to Database</AlertTitle>
-                    <AlertDescription>
-                      Please wait while we establish a connection to our cloud database...
-                    </AlertDescription>
-                  </Alert>
-                )}
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">Supabase Connection</h3>
+                    <div className="bg-muted/30 p-4 rounded-lg border mb-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium mb-1">Database Connection</p>
+                          <div className="flex items-center">
+                            <div 
+                              className={`h-2 w-2 rounded-full mr-2 ${
+                                connectionStatus === "connected" ? "bg-green-500" : 
+                                connectionStatus === "checking" ? "bg-yellow-500" : 
+                                "bg-red-500"
+                              }`} 
+                            />
+                            <p className="text-sm text-muted-foreground">
+                              {connectionStatus === "connected" ? "Connected" : 
+                               connectionStatus === "checking" ? "Checking connection..." :
+                               connectionStatus === "unconfigured" ? "Not configured" :
+                               "Disconnected"}
+                            </p>
+                          </div>
+                        </div>
+                        <Button disabled={!hasValidSupabaseCredentials()}>
+                          {hasValidSupabaseCredentials() ? "Configure" : "Connect"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-medium mb-3">Connected Apps</h3>
+                    <div className="space-y-3">
+                      <div className="border rounded-lg p-4 flex justify-between items-center">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 bg-muted flex items-center justify-center rounded mr-3">
+                            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-medium">Stripe</p>
+                            <p className="text-xs text-muted-foreground">Payment processing</p>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm">Disconnect</Button>
+                      </div>
+                      
+                      <div className="border rounded-lg p-4 flex justify-between items-center">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 bg-muted flex items-center justify-center rounded mr-3">
+                            <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-medium">GitHub</p>
+                            <p className="text-xs text-muted-foreground">Code repository</p>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm">Disconnect</Button>
+                      </div>
+                      
+                      <Button className="w-full" variant="outline">
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Connect New Service
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Card>
+        </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 
