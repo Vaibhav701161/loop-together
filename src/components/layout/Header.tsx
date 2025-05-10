@@ -51,9 +51,16 @@ const Header: React.FC = () => {
 
   return (
     <header className="border-b bg-card shadow-sm sticky top-0 z-50">
-      <div className="container mx-auto flex items-center justify-between px-4 py-2">
+      <div className="container mx-auto flex items-center justify-between px-4 py-3">
         <Link to="/" className="flex items-center">
-          <span className="text-xl font-bold gradient-heading">2getherLoop</span>
+          <div className="flex items-center gap-2">
+            <img 
+              src="/lovable-uploads/1431f3f2-33e9-448e-95bc-c31245063ba3.png" 
+              alt="BitBuddies logo" 
+              className="h-9 w-auto" 
+            />
+            <span className="text-xl font-bold gradient-heading">BitBuddies</span>
+          </div>
         </Link>
 
         {!isMobile ? (
@@ -61,6 +68,7 @@ const Header: React.FC = () => {
             <Button
               variant={isActive("/") ? "default" : "ghost"}
               size="sm"
+              className="neumorph"
               asChild
             >
               <Link to="/">
@@ -70,6 +78,7 @@ const Header: React.FC = () => {
             <Button
               variant={isActive("/history") ? "default" : "ghost"}
               size="sm"
+              className="neumorph"
               asChild
             >
               <Link to="/history">
@@ -79,6 +88,7 @@ const Header: React.FC = () => {
             <Button
               variant={isActive("/notes") ? "default" : "ghost"}
               size="sm"
+              className="neumorph"
               asChild
             >
               <Link to="/notes">
@@ -88,6 +98,7 @@ const Header: React.FC = () => {
             <Button
               variant={isActive("/gallery") ? "default" : "ghost"}
               size="sm"
+              className="neumorph"
               asChild
             >
               <Link to="/gallery">
@@ -100,7 +111,7 @@ const Header: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={
+                  className={`neumorph ${
                     isActive("/comparison") ||
                     isActive("/timeline") ||
                     isActive("/weekly-spend") ||
@@ -109,12 +120,12 @@ const Header: React.FC = () => {
                     isActive("/milestones")
                       ? "bg-muted"
                       : ""
-                  }
+                  }`}
                 >
                   <BarChart2 className="h-4 w-4 mr-2" /> Analytics
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="neumorph bg-card">
                 <DropdownMenuItem onClick={() => navigate("/comparison")}>
                   <PieChart className="h-4 w-4 mr-2" /> Partner Comparison
                 </DropdownMenuItem>
@@ -278,16 +289,16 @@ const Header: React.FC = () => {
         <div className="flex items-center space-x-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground">
+              <Button variant="ghost" size="sm" className="gap-2 neumorph">
+                <Avatar className="h-8 w-8 bg-bit-purple text-white">
+                  <AvatarFallback className="bg-gradient-to-br from-bit-purple to-bit-pink text-white">
                     {activeUser?.name?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <span className="hidden sm:inline">{activeUser?.name}</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="neumorph bg-card">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate("/settings")}>

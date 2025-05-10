@@ -18,18 +18,18 @@ const Footer: React.FC = () => {
   if (!isLoggedIn || !isMobile) {
     return (
       <footer className="bg-muted py-2 text-center text-sm text-muted-foreground">
-        <p>Made with 💖 for couples by 2getherLoop</p>
+        <p>Made with 💖 for buddies by BitBuddies</p>
       </footer>
     );
   }
 
   return (
-    <footer className="bg-white fixed bottom-0 left-0 right-0 border-t border-border shadow-lg">
+    <footer className="bg-card fixed bottom-0 left-0 right-0 border-t border-border shadow-lg">
       <nav className="flex justify-around items-center">
         <Button
           variant={isActive("/") ? "default" : "ghost"}
           onClick={() => navigate("/")}
-          className="flex-1 rounded-none py-6"
+          className="flex-1 rounded-none py-6 gradient-btn"
         >
           🏠 Home
         </Button>

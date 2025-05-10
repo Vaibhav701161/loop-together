@@ -74,10 +74,10 @@ const Login: React.FC = () => {
 
   const handleCreatePair = (code: string) => {
     // Save the code locally
-    localStorage.setItem("2getherLoop_couple_code", code);
+    localStorage.setItem("BitBuddies_couple_code", code);
     toast({
-      title: "Couple Code Created",
-      description: `Your couple code is: ${code}. Share this with your partner.`
+      title: "Buddy Code Created",
+      description: `Your buddy code is: ${code}. Share this with your buddy.`
     });
     
     // Continue to login
@@ -88,7 +88,7 @@ const Login: React.FC = () => {
   const handleJoinPair = (code: string) => {
     toast({
       title: "Successfully Paired",
-      description: "You have successfully connected with your partner's account."
+      description: "You have successfully connected with your buddy's account."
     });
     
     login("user_b");
@@ -96,11 +96,18 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-couple-purple/20 to-couple-light-pink/30 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-bit-light-purple to-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2 gradient-heading">2getherLoop</h1>
-          <p className="text-xl text-purple-700">Track habits together, grow closer 👫</p>
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/lovable-uploads/1431f3f2-33e9-448e-95bc-c31245063ba3.png" 
+              alt="BitBuddies logo" 
+              className="h-20 w-auto" 
+            />
+          </div>
+          <h1 className="text-4xl font-bold mb-2 gradient-heading">BitBuddies</h1>
+          <p className="text-xl text-bit-purple">Track habits together, grow closer 👫</p>
           
           {connectionStatus === 'connected' ? (
             <Badge variant="outline" className="mt-2 bg-green-50 text-green-800 border-green-300">
@@ -119,7 +126,7 @@ const Login: React.FC = () => {
         </div>
         
         {connectionStatus === 'unconfigured' && (
-          <Alert className="mb-4" variant="default">
+          <Alert className="mb-4 neumorph" variant="default">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Working Offline</AlertTitle>
             <AlertDescription>
@@ -136,9 +143,9 @@ const Login: React.FC = () => {
           />
         ) : null}
         
-        <Card className="w-full shadow-lg">
+        <Card className="w-full neumorph">
           <CardHeader>
-            <CardTitle className="text-center">Welcome to 2getherLoop!</CardTitle>
+            <CardTitle className="text-center gradient-heading">Welcome to BitBuddies!</CardTitle>
             <CardDescription className="text-center">
               Enter your names to get started with tracking goals together
             </CardDescription>
@@ -152,7 +159,7 @@ const Login: React.FC = () => {
                   value={personA}
                   onChange={(e) => setPersonA(e.target.value)}
                   placeholder="Enter person A's name"
-                  className="border-couple-purple/50"
+                  className="border-bit-purple/50 neumorph-inset"
                   disabled={isLoading || initializingDb}
                   required
                 />
@@ -164,7 +171,7 @@ const Login: React.FC = () => {
                   value={personB}
                   onChange={(e) => setPersonB(e.target.value)}
                   placeholder="Enter person B's name"
-                  className="border-couple-orange/50"
+                  className="border-bit-orange/50 neumorph-inset"
                   disabled={isLoading || initializingDb}
                   required
                 />
@@ -173,7 +180,7 @@ const Login: React.FC = () => {
             <CardFooter>
               <Button 
                 type="submit" 
-                className="w-full bg-gradient-to-r from-couple-purple to-couple-pink"
+                className="w-full gradient-btn"
                 disabled={isLoading || initializingDb}
               >
                 {isLoading || initializingDb ? "Loading..." : (showCouplePairing ? "Next" : "Start Tracking Together")}
@@ -183,7 +190,7 @@ const Login: React.FC = () => {
         </Card>
         
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>Made with 💖 for couples tracking their journey together</p>
+          <p>Made with 💖 for buddies tracking their journey together</p>
         </div>
       </div>
     </div>

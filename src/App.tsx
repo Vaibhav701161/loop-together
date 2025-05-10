@@ -42,7 +42,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const ThemeInitializer = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Apply the saved theme from localStorage or default to light
-    const savedTheme = localStorage.getItem("2getherLoop_theme") || "light";
+    const savedTheme = localStorage.getItem("BitBuddies_theme") || "light";
     document.documentElement.classList.add(savedTheme);
   }, []);
   

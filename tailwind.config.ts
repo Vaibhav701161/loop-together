@@ -63,19 +63,23 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				couple: {
-					purple: '#8B5CF6',
-					'light-purple': '#D6BCFA',
-					orange: '#F97316',
-					'light-orange': '#FDBA74',
-					pink: '#EC4899',
-					'light-pink': '#F9A8D4'
+				bit: {
+					purple: 'hsl(var(--bit-purple))',
+					'light-purple': 'hsl(var(--bit-light-purple))',
+					orange: 'hsl(var(--bit-orange))',
+					pink: 'hsl(var(--bit-pink))'
 				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			boxShadow: {
+				neumorph: '6px 6px 12px rgba(0,0,0,0.1), -6px -6px 12px rgba(255,255,255,0.8)',
+				'neumorph-dark': '5px 5px 10px rgba(0,0,0,0.3), -5px -5px 10px rgba(255,255,255,0.05)',
+				'neumorph-inset': 'inset 4px 4px 8px rgba(0,0,0,0.1), inset -4px -4px 8px rgba(255,255,255,0.8)',
+				'neumorph-inset-dark': 'inset 4px 4px 8px rgba(0,0,0,0.3), inset -4px -4px 8px rgba(255,255,255,0.05)',
 			},
 			keyframes: {
 				'accordion-down': {
