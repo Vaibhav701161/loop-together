@@ -1,134 +1,189 @@
 
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff } from "lucide-react";
-import { hasValidSupabaseCredentials } from "@/lib/supabase";
+import { useNavigate } from "react-router-dom";
+import { checkSupabaseConnection, hasValidSupabaseCredentials } from "@/lib/supabase";
+import { AlertCircle, CloudOff } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import CouplePairing from "@/components/auth/CouplePairing";
+import { useSupabase } from "@/context/SupabaseContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Login: React.FC = () => {
+  const { users, updateUsers, login, isLoading } = useAuth();
+  const { isConfigured, connectionStatus, initializeSchema } = useSupabase();
+  const [personA, setPersonA] = useState(users[0]?.name || "Person A");
+  const [personB, setPersonB] = useState(users[1]?.name || "Person B");
+  const [showCouplePairing, setShowCouplePairing] = useState(false);
+  const [initializingDb, setInitializingDb] = useState(false);
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // If names were previously set and we're returning to login page,
+    // populate the fields
+    if (users[0]?.name) setPersonA(users[0].name);
+    if (users[1]?.name) setPersonB(users[1].name);
+  }, [users]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     
-    if (!email || !password) {
-      setError("Please fill in all fields");
+    if (personA.trim() === "" || personB.trim() === "") {
+      toast({
+        title: "Missing Names",
+        description: "Please enter names for both people.",
+        variant: "destructive"
+      });
       return;
     }
     
-    setIsLoading(true);
+    // Update user names
+    const updatedUsers = [
+      { ...users[0], name: personA.trim() },
+      { ...users[1], name: personB.trim() }
+    ];
+    updateUsers(updatedUsers);
     
-    try {
-      if (hasValidSupabaseCredentials()) {
-        // In a real app, use Supabase auth
-        // const { error } = await supabase.auth.signInWithPassword({ email, password });
-        // if (error) throw new Error(error.message);
+    // Try to initialize schema if Supabase is configured
+    if (isConfigured && connectionStatus !== 'connected') {
+      setInitializingDb(true);
+      try {
+        await initializeSchema();
+        setInitializingDb(false);
+      } catch (error) {
+        console.error("Failed to initialize database:", error);
+        setInitializingDb(false);
       }
-      
-      // For demo purposes
-      localStorage.setItem("userToken", "demo-token");
-      localStorage.setItem("userRole", "user"); // or "developer"
-      
-      // Navigate to dashboard
+    }
+    
+    // Check if we need to show couple pairing first
+    if (isConfigured && !showCouplePairing) {
+      setShowCouplePairing(true);
+    } else {
+      // Log in as person A
+      login("user_a");
       navigate("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Failed to log in");
-    } finally {
-      setIsLoading(false);
     }
   };
-  
+
+  const handleCreatePair = (code: string) => {
+    // Save the code locally
+    localStorage.setItem("2getherLoop_couple_code", code);
+    toast({
+      title: "Couple Code Created",
+      description: `Your couple code is: ${code}. Share this with your partner.`
+    });
+    
+    // Continue to login
+    login("user_a");
+    navigate("/dashboard");
+  };
+
+  const handleJoinPair = (code: string) => {
+    toast({
+      title: "Successfully Paired",
+      description: "You have successfully connected with your partner's account."
+    });
+    
+    login("user_b");
+    navigate("/dashboard");
+  };
+
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="max-w-md mx-auto">
-        <div className="flex items-center justify-center mb-8">
-          <div className="bg-gradient-to-r from-primary to-secondary rounded-lg p-1.5">
-            <span className="text-white font-bold text-xl">AI</span>
-          </div>
-          <span className="text-2xl font-bold ml-2 gradient-heading">ToolKart</span>
+    <div className="min-h-screen bg-gradient-to-br from-couple-purple/20 to-couple-light-pink/30 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-2 gradient-heading">2getherLoop</h1>
+          <p className="text-xl text-purple-700">Track habits together, grow closer 👫</p>
+          
+          {connectionStatus === 'connected' ? (
+            <Badge variant="outline" className="mt-2 bg-green-50 text-green-800 border-green-300">
+              Cloud Sync Ready
+            </Badge>
+          ) : connectionStatus === 'checking' ? (
+            <Badge variant="outline" className="mt-2 bg-blue-50 text-blue-800 border-blue-300">
+              Checking Connection...
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="mt-2 bg-amber-50 text-amber-800 border-amber-300">
+              <CloudOff className="h-3 w-3 mr-1" />
+              Offline Mode
+            </Badge>
+          )}
         </div>
         
-        <div className="bg-card border rounded-lg shadow-sm p-6">
-          <h1 className="text-2xl font-bold mb-6 text-center">Log In</h1>
-          
-          {error && (
-            <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-md p-3 mb-6">
-              {error}
-            </div>
-          )}
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
+        {connectionStatus === 'unconfigured' && (
+          <Alert className="mb-4" variant="default">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Working Offline</AlertTitle>
+            <AlertDescription>
+              No connection to the cloud database. Your data will be stored locally until connection is configured.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {showCouplePairing ? (
+          <CouplePairing 
+            onCreatePair={handleCreatePair}
+            onJoinPair={handleJoinPair}
+            isConfigured={isConfigured}
+          />
+        ) : null}
+        
+        <Card className="w-full shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-center">Welcome to 2getherLoop!</CardTitle>
+            <CardDescription className="text-center">
+              Enter your names to get started with tracking goals together
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="personA">Person A</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
+                  id="personA"
+                  value={personA}
+                  onChange={(e) => setPersonA(e.target.value)}
+                  placeholder="Enter person A's name"
+                  className="border-couple-purple/50"
+                  disabled={isLoading || initializingDb}
+                  required
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
               </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox id="remember" />
-                <Label htmlFor="remember" className="text-sm">Remember me</Label>
+              <div className="space-y-2">
+                <Label htmlFor="personB">Person B</Label>
+                <Input
+                  id="personB"
+                  value={personB}
+                  onChange={(e) => setPersonB(e.target.value)}
+                  placeholder="Enter person B's name"
+                  className="border-couple-orange/50"
+                  disabled={isLoading || initializingDb}
+                  required
+                />
               </div>
-              <Link to="/forgot-password" className="text-sm text-primary hover:text-primary/80">
-                Forgot password?
-              </Link>
-            </div>
-            
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Log In"}
-            </Button>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-couple-purple to-couple-pink"
+                disabled={isLoading || initializingDb}
+              >
+                {isLoading || initializingDb ? "Loading..." : (showCouplePairing ? "Next" : "Start Tracking Together")}
+              </Button>
+            </CardFooter>
           </form>
-          
-          <div className="mt-4 pt-4 border-t text-center">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:text-primary/80 font-medium">
-                Sign up
-              </Link>
-            </p>
-          </div>
+        </Card>
+        
+        <div className="mt-8 text-center text-sm text-muted-foreground">
+          <p>Made with 💖 for couples tracking their journey together</p>
         </div>
       </div>
     </div>
