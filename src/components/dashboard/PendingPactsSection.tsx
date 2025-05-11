@@ -62,7 +62,7 @@ const PendingPactsSection: React.FC<PendingPactsSectionProps> = ({
           {pendingPacts.map((pact) => (
             <div
               key={pact.id}
-              className={`p-4 border-l-4 bg-card rounded-md shadow-sm hover:shadow transition-all cursor-pointer ${getPactTypeClass(pact.type)}`}
+              className={`p-4 border-l-4 bg-card rounded-md shadow-sm hover:shadow transition-all cursor-pointer ${getPactTypeClass(pact.color)}`}
               onClick={() => onPactClick(pact.id)}
             >
               <div className="flex justify-between items-start">
