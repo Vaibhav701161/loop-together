@@ -4,116 +4,119 @@
 
 @layer base {
   :root {
-    /* Light mode colors - Modified with mint green theme */
-    --background: 160 30% 95%;
-    --foreground: 160 10% 20%;
+    /* Light mode colors - New web3 theme with electric violet, hot pink, etc */
+    --background: 260 60% 98%;
+    --foreground: 260 10% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 160 10% 20%;
+    --card-foreground: 260 10% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 160 10% 20%;
+    --popover-foreground: 260 10% 20%;
 
-    --primary: 160 70% 40%;
+    --primary: 275 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 180 60% 60%;
+    --secondary: 300 100% 50%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 160 10% 90%;
-    --muted-foreground: 160 10% 40%;
+    --muted: 260 10% 90%;
+    --muted-foreground: 260 10% 40%;
 
-    --accent: 130 50% 60%;
+    --accent: 30 100% 50%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 160 20% 85%;
-    --input: 160 20% 85%;
-    --ring: 160 70% 40%;
+    --border: 260 20% 85%;
+    --input: 260 20% 85%;
+    --ring: 275 100% 50%;
 
     --radius: 1rem;
 
     /* Custom theme colors */
-    --bit-purple: 160 70% 40%;
-    --bit-pink: 180 70% 65%;
-    --bit-orange: 130 60% 65%;
-    --bit-light-purple: 160 70% 90%;
+    --bit-purple: 275 100% 50%; /* Electric Violet: #7F00FF */
+    --bit-pink: 290 100% 50%;   /* Hot Pink: #E100FF */
+    --bit-orange: 25 100% 50%;  /* Sunset Orange: #FF6A00 */
+    --bit-peach: 35 100% 64%;   /* Peach: #FFB347 */
+    --bit-light-purple: 270 100% 95%;
   }
 
   .dark {
-    /* Dark mode colors - Modified with mint green theme */
-    --background: 160 30% 5%;
-    --foreground: 160 10% 95%;
+    /* Dark mode colors - Web3 inspired */
+    --background: 260 30% 10%;
+    --foreground: 260 10% 95%;
 
-    --card: 160 30% 9%;
-    --card-foreground: 160 10% 95%;
+    --card: 260 30% 15%;
+    --card-foreground: 260 10% 95%;
 
-    --popover: 160 30% 9%;
-    --popover-foreground: 160 10% 95%;
+    --popover: 260 30% 15%;
+    --popover-foreground: 260 10% 95%;
 
-    --primary: 160 60% 50%;
+    --primary: 275 90% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 180 55% 45%;
+    --secondary: 290 90% 60%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 160 20% 15%;
-    --muted-foreground: 160 10% 70%;
+    --muted: 260 20% 20%;
+    --muted-foreground: 260 10% 70%;
 
-    --accent: 130 60% 45%;
+    --accent: 25 90% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 74.2% 50.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 160 20% 25%;
-    --input: 160 20% 25%;
-    --ring: 160 60% 50%;
+    --border: 260 20% 25%;
+    --input: 260 20% 25%;
+    --ring: 275 90% 60%;
 
     /* Custom theme colors - darker */
-    --bit-purple: 160 60% 50%;
-    --bit-pink: 180 60% 45%;
-    --bit-orange: 130 55% 45%;
-    --bit-light-purple: 160 60% 25%;
+    --bit-purple: 275 90% 60%;
+    --bit-pink: 290 90% 60%;
+    --bit-orange: 25 90% 55%;
+    --bit-peach: 35 90% 70%;
+    --bit-light-purple: 270 90% 25%;
   }
 
   .buddy-mode {
-    /* Buddy mode colors - Modified with mint green theme */
-    --background: 150 30% 97%;
-    --foreground: 160 10% 20%;
+    /* Buddy mode colors - Web3 theme */
+    --background: 260 30% 97%;
+    --foreground: 260 10% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 160 10% 20%;
+    --card-foreground: 260 10% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 160 10% 20%;
+    --popover-foreground: 260 10% 20%;
 
-    --primary: 160 70% 45%;
+    --primary: 275 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 180 65% 55%;
+    --secondary: 290 100% 50%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 160 10% 90%;
-    --muted-foreground: 160 10% 40%;
+    --muted: 260 10% 90%;
+    --muted-foreground: 260 10% 40%;
 
-    --accent: 130 50% 55%;
+    --accent: 25 100% 50%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 160 20% 85%;
-    --input: 160 20% 85%;
-    --ring: 160 70% 45%;
+    --border: 260 20% 85%;
+    --input: 260 20% 85%;
+    --ring: 275 100% 50%;
 
     /* Buddy-specific theme colors */
-    --bit-purple: 160 70% 45%;
-    --bit-pink: 180 70% 60%;
-    --bit-orange: 130 60% 55%;
-    --bit-light-purple: 160 70% 90%;
+    --bit-purple: 275 100% 50%;
+    --bit-pink: 290 100% 50%;
+    --bit-orange: 25 100% 50%;
+    --bit-peach: 35 100% 64%;
+    --bit-light-purple: 270 100% 95%;
   }
 }
 
@@ -161,6 +164,10 @@
     @apply bg-gradient-to-r from-bit-purple to-bit-orange hover:opacity-90 transition-all;
   }
   
+  .gradient-btn-secondary {
+    @apply bg-gradient-to-r from-[#1E1E2F] to-[#4B0082] hover:opacity-90 transition-all;
+  }
+  
   .card-hover {
     @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
   }
@@ -184,7 +191,35 @@
     @apply bg-background rounded-xl p-4 neumorph;
   }
 
-  /* Theme-based gradients - Updated for mint theme */
+  /* Web3 Specific Styles */
+  .glow-effect {
+    @apply relative;
+  }
+
+  .glow-effect::before {
+    content: '';
+    @apply absolute inset-0 rounded-xl bg-gradient-to-r from-bit-purple to-bit-pink opacity-0 transition-opacity duration-300 -z-10 blur-lg;
+  }
+
+  .glow-effect:hover::before {
+    @apply opacity-70;
+  }
+
+  /* Floating animation */
+  .float-animation {
+    animation: floating 3s ease-in-out infinite;
+  }
+
+  @keyframes floating {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Theme-based gradients */
   .light .gradient-card {
     @apply bg-gradient-to-br from-white to-muted;
   }
@@ -256,6 +291,10 @@
   color: hsl(var(--bit-orange));
 }
 
+.text-bit-peach {
+  color: hsl(var(--bit-peach));
+}
+
 .border-l-bit-purple {
   border-left-color: hsl(var(--bit-purple));
 }
@@ -280,8 +319,36 @@
   background-color: hsl(var(--bit-orange));
 }
 
+.bg-bit-peach {
+  background-color: hsl(var(--bit-peach));
+}
+
 .bg-bit-light-purple {
   background-color: hsl(var(--bit-light-purple));
+}
+
+/* Web3 specific background */
+.web3-bg {
+  background: radial-gradient(circle at top right, rgba(127, 0, 255, 0.15), transparent 60%),
+              radial-gradient(circle at bottom left, rgba(225, 0, 255, 0.15), transparent 60%);
+}
+
+/* Gradient text for headings */
+.gradient-text {
+  background: linear-gradient(to right, #7F00FF, #E100FF);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Glassmorphism classes */
+.glass-card {
+  @apply bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl;
+}
+
+/* Button glow effect */
+.btn-glow:hover {
+  box-shadow: 0 0 15px rgba(127, 0, 255, 0.6);
 }
 
 /* Remove App.css styles that are now in Tailwind */

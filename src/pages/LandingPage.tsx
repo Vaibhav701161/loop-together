@@ -1,36 +1,57 @@
-import React from "react";
+
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Check, Globe, Shield, MessageSquare, Users, Leaf, Sparkles } from "lucide-react";
+import { ArrowRight, Shield, MessageSquare, Users, Wallet, Sparkles, Globe } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 const LandingPage: React.FC = () => {
+  // Add subtle background animation effect
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const heroImage = document.getElementById('hero-image');
+      if (heroImage) {
+        heroImage.style.transform = `translateY(${scrollY * 0.05}px)`;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-background/80 overflow-x-hidden">
-      {/* Hero Section */}
+    <div className="min-h-screen web3-bg overflow-x-hidden font-sans">
+      {/* Hero Section with New Web3 Style */}
       <section className="container mx-auto px-4 pt-20 pb-32 md:pt-32 md:pb-40 relative">
-        {/* Floating geometric shapes - Updated colors */}
-        <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-bit-purple/10 blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-bit-orange/10 blur-3xl animate-pulse delay-700"></div>
+        {/* Floating geometric shapes */}
+        <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-bit-purple/20 blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-bit-orange/20 blur-3xl animate-pulse delay-700"></div>
+        <div className="absolute top-40 right-40 w-40 h-40 rounded-full bg-bit-pink/20 blur-3xl animate-pulse delay-500"></div>
         
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6 z-10">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 gradient-heading leading-tight animate-fade-in">
-              Decentralized. Trustless. <br className="hidden md:block" />Together.
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 gradient-text leading-tight animate-fade-in uppercase">
+              Turn Promises into <br className="hidden md:block" />Real Accountability
             </h1>
-            <p className="text-lg text-muted-foreground mb-8 max-w-2xl animate-fade-in delay-100">
+            <p className="font-bold text-xl text-center md:text-left text-bit-purple/90 mb-3 animate-fade-in delay-100">
+              Decentralized. Trustless. Together.
+            </p>
+            <p className="text-lg text-muted-foreground mb-8 max-w-2xl animate-fade-in delay-200">
               Empowering communities with blockchain-powered social engagement.
             </p>
             <div className="flex flex-wrap gap-4">
-              <Button size="lg" className="gradient-btn text-white px-8 py-6 h-auto text-lg rounded-xl neumorph animate-fade-in delay-200">
+              <Button size="lg" className="gradient-btn text-white px-8 py-6 h-auto text-lg rounded-xl btn-glow animate-fade-in delay-300">
                 <Link to="/login" className="flex items-center gap-2">
-                  Join Beta <ArrowRight className="ml-2" />
+                  Start Your Pact <ArrowRight className="ml-2" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" className="px-8 py-6 h-auto text-lg rounded-xl neumorph animate-fade-in delay-300">
-                <Link to="#" className="flex items-center gap-2">
-                  View Whitepaper
+              <Button size="lg" variant="outline" className="gradient-btn-secondary px-8 py-6 h-auto text-lg rounded-xl animate-fade-in delay-400">
+                <Link to="#" className="flex items-center gap-2 text-white">
+                  <Wallet className="mr-2" size={18} /> Connect Wallet
                 </Link>
               </Button>
             </div>
@@ -38,25 +59,26 @@ const LandingPage: React.FC = () => {
           <div className="flex justify-center items-center z-10">
             <div className="relative w-full max-w-md animate-fade-in">
               <img 
-                src="/lovable-uploads/db257743-0e12-4773-be95-c677c49e8c78.png" 
+                id="hero-image"
+                src="/lovable-uploads/0b3b14dd-c888-4991-90a6-102d34183e11.png" 
                 alt="BitBuddies" 
-                className="w-full h-auto drop-shadow-2xl hover:scale-105 transition-transform duration-300"
+                className="w-full h-auto drop-shadow-2xl float-animation"
               />
-              <div className="absolute -z-10 inset-0 bg-gradient-to-r from-bit-purple/20 to-bit-pink/20 blur-3xl rounded-full"></div>
+              <div className="absolute -z-10 inset-0 bg-gradient-to-r from-bit-purple/30 to-bit-pink/30 blur-3xl rounded-full"></div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section - Updated with mint theme */}
+      {/* Features Section - Web3-inspired design */}
       <section className="container mx-auto px-4 py-20 relative">
         <div className="max-w-3xl mx-auto text-center mb-16">
-          <h2 className="text-3xl font-bold gradient-heading mb-4">Powerful Features</h2>
+          <h2 className="text-3xl font-bold gradient-text uppercase mb-4">Powerful Features</h2>
           <p className="text-muted-foreground">Experience the next generation of social engagement with our blockchain-powered platform</p>
         </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-none bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
+          <Card className="glass-card overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
             <CardContent className="p-6 text-center">
               <div className="bg-gradient-to-br from-bit-purple to-bit-pink w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Globe className="text-white w-8 h-8" />
@@ -66,17 +88,17 @@ const LandingPage: React.FC = () => {
             </CardContent>
           </Card>
           
-          <Card className="border-none bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
+          <Card className="glass-card overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
             <CardContent className="p-6 text-center">
-              <div className="bg-gradient-to-br from-bit-orange to-bit-pink w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Leaf className="text-white w-8 h-8" />
+              <div className="bg-gradient-to-br from-bit-orange to-bit-peach w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="text-white w-8 h-8" />
               </div>
               <h3 className="text-xl font-bold mb-2">Token Rewards</h3>
               <p className="text-muted-foreground">Earn rewards for your contributions and engagement within the community</p>
             </CardContent>
           </Card>
           
-          <Card className="border-none bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
+          <Card className="glass-card overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
             <CardContent className="p-6 text-center">
               <div className="bg-gradient-to-br from-bit-purple to-bit-orange w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <MessageSquare className="text-white w-8 h-8" />
@@ -86,10 +108,10 @@ const LandingPage: React.FC = () => {
             </CardContent>
           </Card>
           
-          <Card className="border-none bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
+          <Card className="glass-card overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
             <CardContent className="p-6 text-center">
               <div className="bg-gradient-to-br from-bit-pink to-bit-purple w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Sparkles className="text-white w-8 h-8" />
+                <Users className="text-white w-8 h-8" />
               </div>
               <h3 className="text-xl font-bold mb-2">Community Governance</h3>
               <p className="text-muted-foreground">Participate in decision-making through decentralized governance proposals</p>
@@ -98,12 +120,12 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Why BitBuddies Section - Updated with mint theme */}
+      {/* Why BitBuddies Section - Web3 Aesthetic */}
       <section className="bg-gradient-to-br from-bit-purple/5 to-bit-pink/5 py-20">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
-              <h2 className="text-3xl font-bold gradient-heading mb-4">Why BitBuddies?</h2>
+              <h2 className="text-3xl font-bold gradient-text uppercase mb-4">Why BitBuddies?</h2>
               
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
@@ -141,8 +163,8 @@ const LandingPage: React.FC = () => {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-bit-purple/20 to-bit-pink/20 blur-3xl rounded-full"></div>
               
-              {/* Abstract Illustration */}
-              <div className="relative z-10 h-80 md:h-96 w-full rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 overflow-hidden shadow-lg">
+              {/* Abstract Web3 Illustration */}
+              <div className="relative z-10 h-80 md:h-96 w-full glass-card overflow-hidden shadow-lg">
                 <div className="absolute -right-16 -top-16 w-32 h-32 rounded-full bg-bit-purple/30"></div>
                 <div className="absolute -left-16 -bottom-16 w-48 h-48 rounded-full bg-bit-orange/30"></div>
                 <div className="absolute left-32 top-32 w-24 h-24 rounded-full bg-bit-pink/30"></div>
@@ -161,11 +183,11 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Testimonials - Keep existing but with updated styling */}
+      {/* Testimonials - Web3 Style */}
       <section className="container mx-auto px-4 py-20">
-        <h2 className="text-3xl font-bold text-center gradient-heading mb-16">Community Love</h2>
+        <h2 className="text-3xl font-bold text-center gradient-text uppercase mb-16">Community Love</h2>
         <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-lg">
+          <div className="glass-card p-8 shadow-lg">
             <p className="italic text-muted-foreground mb-6">
               "BitBuddies has revolutionized how I connect with my crypto friends. The token incentives make engagement so much more rewarding!"
             </p>
@@ -180,7 +202,7 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
           
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-lg">
+          <div className="glass-card p-8 shadow-lg">
             <p className="italic text-muted-foreground mb-6">
               "The privacy-focused approach of BitBuddies gives me peace of mind while still allowing me to build my on-chain reputation. Game changer!"
             </p>
@@ -195,7 +217,7 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
           
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-lg">
+          <div className="glass-card p-8 shadow-lg">
             <p className="italic text-muted-foreground mb-6">
               "I've been looking for a platform that combines social engagement with blockchain technology. BitBuddies nails it with their governance model."
             </p>
@@ -212,15 +234,15 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* CTA Section - Updated with mint theme colors */}
+      {/* CTA Section - Web3 Styled */}
       <section className="container mx-auto px-4 py-16 mb-10">
-        <div className="max-w-4xl mx-auto text-center bg-white/5 backdrop-blur-xl border border-white/10 p-12 rounded-2xl shadow-lg relative overflow-hidden">
+        <div className="max-w-4xl mx-auto text-center glass-card p-12 shadow-lg relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-bit-purple/20 to-bit-pink/20 z-0"></div>
           <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-bit-orange/20 blur-2xl"></div>
           <div className="absolute -bottom-24 -left-24 w-48 h-48 rounded-full bg-bit-purple/20 blur-2xl"></div>
           
           <div className="relative z-10">
-            <h2 className="text-3xl font-bold gradient-heading mb-6">Join the Movement</h2>
+            <h2 className="text-3xl font-bold gradient-text uppercase mb-6">Join the Movement</h2>
             <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
               Be among the first to experience BitBuddies. Sign up for early access and receive exclusive benefits.
             </p>
@@ -231,7 +253,7 @@ const LandingPage: React.FC = () => {
                 placeholder="Enter your email"
                 className="flex-1 rounded-xl px-4 py-3 bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-bit-purple"
               />
-              <Button size="lg" className="gradient-btn text-white px-6 py-3 h-auto rounded-xl neumorph">
+              <Button size="lg" className="gradient-btn btn-glow text-white px-6 py-3 h-auto rounded-xl">
                 Get Early Access
               </Button>
             </div>
@@ -239,12 +261,12 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer - Updated with mint theme */}
-      <footer className="bg-gradient-to-br from-[#163832] to-[#0d221e] py-12 text-white/90">
+      {/* Footer - Web3 Themed */}
+      <footer className="bg-gradient-to-br from-[#1E1E2F] to-[#4B0082] py-12 text-white/90">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-6 md:mb-0">
-              <h2 className="text-2xl font-bold text-white mb-2">BitBuddies</h2>
+              <h2 className="text-2xl font-bold text-white mb-2 gradient-text">BitBuddies</h2>
               <p className="text-sm text-white/70">© 2025 BitBuddies. All rights reserved.</p>
             </div>
             
@@ -252,25 +274,25 @@ const LandingPage: React.FC = () => {
               <div>
                 <h3 className="font-semibold mb-3 text-white/90">Platform</h3>
                 <ul className="space-y-2">
-                  <li><Link to="/" className="text-white/70 hover:text-bit-purple">Home</Link></li>
-                  <li><Link to="/features" className="text-white/70 hover:text-bit-purple">Features</Link></li>
-                  <li><Link to="/pricing" className="text-white/70 hover:text-bit-purple">Pricing</Link></li>
+                  <li><Link to="/" className="text-white/70 hover:text-bit-pink transition-colors">Home</Link></li>
+                  <li><Link to="/features" className="text-white/70 hover:text-bit-pink transition-colors">Features</Link></li>
+                  <li><Link to="/pricing" className="text-white/70 hover:text-bit-pink transition-colors">Pricing</Link></li>
                 </ul>
               </div>
               <div>
                 <h3 className="font-semibold mb-3 text-white/90">Resources</h3>
                 <ul className="space-y-2">
-                  <li><Link to="/blog" className="text-white/70 hover:text-bit-purple">Blog</Link></li>
-                  <li><Link to="/guide" className="text-white/70 hover:text-bit-purple">User Guide</Link></li>
-                  <li><Link to="/faq" className="text-white/70 hover:text-bit-purple">FAQ</Link></li>
+                  <li><Link to="/blog" className="text-white/70 hover:text-bit-pink transition-colors">Blog</Link></li>
+                  <li><Link to="/guide" className="text-white/70 hover:text-bit-pink transition-colors">User Guide</Link></li>
+                  <li><Link to="/faq" className="text-white/70 hover:text-bit-pink transition-colors">FAQ</Link></li>
                 </ul>
               </div>
               <div>
                 <h3 className="font-semibold mb-3 text-white/90">Company</h3>
                 <ul className="space-y-2">
-                  <li><Link to="/about" className="text-white/70 hover:text-bit-purple">About Us</Link></li>
-                  <li><Link to="/contact" className="text-white/70 hover:text-bit-purple">Contact</Link></li>
-                  <li><Link to="/terms" className="text-white/70 hover:text-bit-purple">Terms</Link></li>
+                  <li><Link to="/about" className="text-white/70 hover:text-bit-pink transition-colors">About Us</Link></li>
+                  <li><Link to="/contact" className="text-white/70 hover:text-bit-pink transition-colors">Contact</Link></li>
+                  <li><Link to="/terms" className="text-white/70 hover:text-bit-pink transition-colors">Terms</Link></li>
                 </ul>
               </div>
             </div>
