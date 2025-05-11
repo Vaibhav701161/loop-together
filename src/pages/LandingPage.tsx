@@ -1,8 +1,7 @@
-
 import React from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Check, Globe, Shield, MessageSquare, Users } from "lucide-react";
+import { ArrowRight, Check, Globe, Shield, MessageSquare, Users, Leaf, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 
@@ -11,7 +10,7 @@ const LandingPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-b from-background to-background/80 overflow-x-hidden">
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-20 pb-32 md:pt-32 md:pb-40 relative">
-        {/* Floating geometric shapes */}
+        {/* Floating geometric shapes - Updated colors */}
         <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-bit-purple/10 blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-bit-orange/10 blur-3xl animate-pulse delay-700"></div>
         
@@ -49,7 +48,7 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Features Section - Updated with mint theme */}
       <section className="container mx-auto px-4 py-20 relative">
         <div className="max-w-3xl mx-auto text-center mb-16">
           <h2 className="text-3xl font-bold gradient-heading mb-4">Powerful Features</h2>
@@ -70,7 +69,7 @@ const LandingPage: React.FC = () => {
           <Card className="border-none bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
             <CardContent className="p-6 text-center">
               <div className="bg-gradient-to-br from-bit-orange to-bit-pink w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check className="text-white w-8 h-8" />
+                <Leaf className="text-white w-8 h-8" />
               </div>
               <h3 className="text-xl font-bold mb-2">Token Rewards</h3>
               <p className="text-muted-foreground">Earn rewards for your contributions and engagement within the community</p>
@@ -90,7 +89,7 @@ const LandingPage: React.FC = () => {
           <Card className="border-none bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden hover:translate-y-[-5px] transition-all duration-300 shadow-lg">
             <CardContent className="p-6 text-center">
               <div className="bg-gradient-to-br from-bit-pink to-bit-purple w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="text-white w-8 h-8" />
+                <Sparkles className="text-white w-8 h-8" />
               </div>
               <h3 className="text-xl font-bold mb-2">Community Governance</h3>
               <p className="text-muted-foreground">Participate in decision-making through decentralized governance proposals</p>
@@ -99,7 +98,7 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Why BitBuddies Section */}
+      {/* Why BitBuddies Section - Updated with mint theme */}
       <section className="bg-gradient-to-br from-bit-purple/5 to-bit-pink/5 py-20">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -162,7 +161,7 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Testimonials - Keep existing but with updated styling */}
       <section className="container mx-auto px-4 py-20">
         <h2 className="text-3xl font-bold text-center gradient-heading mb-16">Community Love</h2>
         <div className="grid md:grid-cols-3 gap-8">
@@ -213,7 +212,7 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* CTA Section - Updated with mint theme colors */}
       <section className="container mx-auto px-4 py-16 mb-10">
         <div className="max-w-4xl mx-auto text-center bg-white/5 backdrop-blur-xl border border-white/10 p-12 rounded-2xl shadow-lg relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-bit-purple/20 to-bit-pink/20 z-0"></div>
@@ -240,8 +239,8 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-gray-900 to-gray-800 py-12 text-white/90">
+      {/* Footer - Updated with mint theme */}
+      <footer className="bg-gradient-to-br from-[#163832] to-[#0d221e] py-12 text-white/90">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-6 md:mb-0">
