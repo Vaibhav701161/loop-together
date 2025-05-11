@@ -1,80 +1,43 @@
 
-import React, { useState, useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle, CloudOff, AlertCircle, Loader2 } from "lucide-react";
-import { hasValidSupabaseCredentials, checkSupabaseConnection } from "@/lib/supabase";
+import React from "react";
+import { cn } from "@/lib/utils";
 
-interface ConnectionStatusProps {
+type ConnectionStatusProps = {
   status: 'connected' | 'disconnected' | 'checking' | 'unconfigured';
   className?: string;
-}
+};
 
-export function ConnectionStatus({ status, className = "" }: ConnectionStatusProps) {
-  if (status === 'connected') {
-    return (
-      <Badge variant="outline" className={`bg-green-50 text-green-800 border-green-300 ${className}`}>
-        <CheckCircle className="h-3 w-3 mr-1" />
-        Online
-      </Badge>
-    );
-  }
-  
-  if (status === 'disconnected') {
-    return (
-      <Badge variant="outline" className={`bg-amber-50 text-amber-800 border-amber-300 ${className}`}>
-        <CloudOff className="h-3 w-3 mr-1" />
-        Offline
-      </Badge>
-    );
-  }
-  
-  if (status === 'unconfigured') {
-    return (
-      <Badge variant="outline" className={`bg-gray-50 text-gray-800 border-gray-300 ${className}`}>
-        <AlertCircle className="h-3 w-3 mr-1" />
-        Not Configured
-      </Badge>
-    );
-  }
-  
+export function ConnectionStatus({ status, className }: ConnectionStatusProps) {
+  const getStatusStyles = () => {
+    switch (status) {
+      case "connected":
+        return "bg-green-500 text-white";
+      case "disconnected":
+        return "bg-orange-500 text-white";
+      case "checking":
+        return "bg-blue-500 text-white";
+      case "unconfigured":
+        return "bg-gray-400 text-white";
+    }
+  };
+
+  const getStatusText = () => {
+    switch (status) {
+      case "connected":
+        return "Connected to Cloud";
+      case "disconnected":
+        return "Offline";
+      case "checking":
+        return "Checking Connection...";
+      case "unconfigured":
+        return "Unconfigured";
+    }
+  };
+
   return (
-    <Badge variant="outline" className={`bg-blue-50 text-blue-800 border-blue-300 ${className}`}>
-      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-      Checking...
-    </Badge>
+    <div className={cn("px-3 py-1 rounded-full text-sm font-medium flex items-center", getStatusStyles(), className)}>
+      <span className="w-2 h-2 rounded-full bg-current mr-2 animate-pulse"></span>
+      {getStatusText()}
+    </div>
   );
-}
-
-// Hook to monitor connection status
-export function useConnectionStatus() {
-  const [status, setStatus] = useState<'connected' | 'disconnected' | 'checking' | 'unconfigured'>('checking');
-  
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        // First check if Supabase is configured
-        if (!hasValidSupabaseCredentials()) {
-          console.log("No valid Supabase credentials found");
-          setStatus('unconfigured');
-          return;
-        }
-        
-        setStatus('checking');
-        const isConnected = await checkSupabaseConnection();
-        console.log("Supabase connection check result:", isConnected);
-        setStatus(isConnected ? 'connected' : 'disconnected');
-      } catch (error) {
-        console.error("Error checking Supabase connection:", error);
-        setStatus('disconnected');
-      }
-    };
-    
-    checkConnection();
-    
-    // Check connection more frequently - every 15 seconds
-    const interval = setInterval(checkConnection, 15 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-  
-  return status;
 }

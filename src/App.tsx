@@ -25,6 +25,7 @@ import { ReminderProvider } from "./context/ReminderContext";
 import { SupabaseProvider } from "./context/SupabaseContext";
 import { useEffect, useState } from "react";
 import { hasValidSupabaseCredentials } from "./lib/supabase";
+import LandingPage from "./pages/LandingPage";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,7 @@ const AppRoutes = () => {
   
   return (
     <Routes>
+      <Route path="/landing" element={<LandingPage />} />
       <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />} />
       
       {/* Protected routes */}
@@ -96,7 +98,7 @@ const AppRoutes = () => {
       <Route path="/gallery" element={<ProtectedRoute><MediaGallery /></ProtectedRoute>} />
       
       {/* Root path redirects based on login status */}
-      <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
+      <Route path="/" element={<LandingPage />} />
       
       {/* Catch-all route */}
       <Route path="*" element={<NotFound />} />

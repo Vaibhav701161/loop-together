@@ -1,95 +1,88 @@
 
 import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Pact, CompletionStatus } from "@/types";
+import { Pact } from "@/types";
+import { format } from "date-fns";
 
 interface PendingPactsSectionProps {
-  pendingCount: number;
   pendingPacts: Pact[];
-  getStatusBadge: (status: CompletionStatus) => React.ReactNode;
-  onProofSubmit: (pact: Pact) => void;
+  onPactClick: (id: string) => void;
 }
 
 const PendingPactsSection: React.FC<PendingPactsSectionProps> = ({ 
-  pendingCount, 
-  pendingPacts, 
-  getStatusBadge, 
-  onProofSubmit 
+  pendingPacts,
+  onPactClick
 }) => {
-  const navigate = useNavigate();
+  // Helper function to format dates
+  const formatDate = (date: Date | string) => {
+    if (!date) return "No date";
+    return format(new Date(date), "MMM d, yyyy");
+  };
+
+  // Helper function to determine background class based on pact type
+  const getPactTypeClass = (type: string) => {
+    switch (type) {
+      case "fitness":
+        return "border-l-bit-purple";
+      case "study":
+        return "border-l-bit-orange";
+      case "productivity":
+        return "border-l-bit-pink";
+      default:
+        return "border-l-muted";
+    }
+  };
+
+  if (pendingPacts.length === 0) {
+    return (
+      <Card className="mb-6 neumorph animate-fade-in">
+        <CardHeader>
+          <CardTitle>Pending Pacts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">No pending pacts yet. Create a new pact to get started!</p>
+          <Button className="mt-4 gradient-btn text-white" onClick={() => window.location.href = "/create"}>
+            Create New Pact
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <div className="lg:col-span-2">
-      <div className="flex justify-between items-center mb-2">
-        <h2 className="text-xl font-bold">Your Pending Pacts</h2>
-        <Button size="sm" onClick={() => navigate("/create")}>
-          Create New
-        </Button>
-      </div>
-      
-      {pendingCount === 0 ? (
-        <Card className="bg-muted/30">
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <Sparkles className="h-10 w-10 text-secondary mb-2" />
-            <p className="text-lg mb-2">🎉 All done for today!</p>
-            <p className="text-sm text-muted-foreground">You have completed all your pacts for today.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
+    <Card className="mb-6 neumorph animate-fade-in">
+      <CardHeader>
+        <CardTitle>Pending Pacts</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
           {pendingPacts.map((pact) => (
-            <PendingPactCard 
-              key={pact.id} 
-              pact={pact} 
-              getStatusBadge={getStatusBadge} 
-              onProofSubmit={onProofSubmit} 
-            />
+            <div
+              key={pact.id}
+              className={`p-4 border-l-4 bg-card rounded-md shadow-sm hover:shadow transition-all cursor-pointer ${getPactTypeClass(pact.type)}`}
+              onClick={() => onPactClick(pact.id)}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium text-lg">{pact.title}</h3>
+                  <p className="text-muted-foreground text-sm">{pact.description}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-muted-foreground">Due by:</span>
+                  <p className="font-medium">{formatDate(pact.dueDate)}</p>
+                  
+                  {/* Connection status indicator - using a simple colored dot for now */}
+                  <div className="flex items-center justify-end mt-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>
+                    <span className="text-xs text-muted-foreground">Synced</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
-      )}
-    </div>
-  );
-};
-
-interface PendingPactCardProps {
-  pact: Pact;
-  getStatusBadge: (status: CompletionStatus) => React.ReactNode;
-  onProofSubmit: (pact: Pact) => void;
-}
-
-const PendingPactCard: React.FC<PendingPactCardProps> = ({ pact, getStatusBadge, onProofSubmit }) => {
-  return (
-    <Card key={pact.id} className="card-hover border-l-4 border-l-primary">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <CardTitle>{pact.title}</CardTitle>
-          {getStatusBadge(pact.status as CompletionStatus)}
-        </div>
-        <CardDescription>
-          Due by {pact.deadline} • {pact.frequency}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-2">
-        {pact.description && (
-          <p className="text-sm mb-2">{pact.description}</p>
-        )}
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <span>Proof type: {pact.proofType}</span>
-        </div>
       </CardContent>
-      <CardFooter>
-        <Button 
-          variant="default" 
-          className="w-full"
-          onClick={() => onProofSubmit(pact)}
-        >
-          Complete Task
-        </Button>
-      </CardFooter>
     </Card>
   );
 };
