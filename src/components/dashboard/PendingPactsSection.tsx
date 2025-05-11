@@ -21,8 +21,10 @@ const PendingPactsSection: React.FC<PendingPactsSectionProps> = ({
   };
 
   // Helper function to determine background class based on pact type
-  const getPactTypeClass = (type: string) => {
-    switch (type) {
+  const getPactTypeClass = (pactType: string | undefined) => {
+    if (!pactType) return "border-l-muted";
+    
+    switch (pactType) {
       case "fitness":
         return "border-l-bit-purple";
       case "study":
@@ -69,8 +71,12 @@ const PendingPactsSection: React.FC<PendingPactsSectionProps> = ({
                   <p className="text-muted-foreground text-sm">{pact.description}</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-muted-foreground">Due by:</span>
-                  <p className="font-medium">{formatDate(pact.dueDate)}</p>
+                  {pact.deadline && (
+                    <>
+                      <span className="text-xs text-muted-foreground">Due by:</span>
+                      <p className="font-medium">{formatDate(pact.startDate)}</p>
+                    </>
+                  )}
                   
                   {/* Connection status indicator - using a simple colored dot for now */}
                   <div className="flex items-center justify-end mt-2">

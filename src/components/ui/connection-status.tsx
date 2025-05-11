@@ -1,6 +1,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { useSupabase } from "@/context/SupabaseContext";
 
 type ConnectionStatusProps = {
   status: 'connected' | 'disconnected' | 'checking' | 'unconfigured';
@@ -40,4 +41,10 @@ export function ConnectionStatus({ status, className }: ConnectionStatusProps) {
       {getStatusText()}
     </div>
   );
+}
+
+// Add a hook to get the connection status from the SupabaseContext
+export function useConnectionStatus() {
+  const { connectionStatus } = useSupabase();
+  return connectionStatus;
 }

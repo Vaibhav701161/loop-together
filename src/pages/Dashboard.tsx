@@ -8,7 +8,7 @@ import ProofDialog from "@/components/pact/ProofDialog";
 import StreakHeatmap from "@/components/streak/StreakHeatmap";
 import { Pact, CompletionStatus } from "@/types";
 import SuccessAnimation from "@/components/pact/SuccessAnimation";
-import { useConnectionStatus } from "@/components/ui/connection-status";
+import { ConnectionStatus, useConnectionStatus } from "@/components/ui/connection-status";
 import { useSupabase } from "@/context/SupabaseContext";
 
 // Import the new components
@@ -129,10 +129,11 @@ const Dashboard: React.FC = () => {
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
             <PendingPactsSection 
-              pendingCount={userStats.pendingCount}
               pendingPacts={getUserPendingPacts(currentUserId)}
-              getStatusBadge={(status) => getStatusBadge(status)}
-              onProofSubmit={handleProofSubmit}
+              onPactClick={(id) => {
+                const pact = getUserPendingPacts(currentUserId).find(p => p.id === id);
+                if (pact) handleProofSubmit(pact);
+              }}
             />
             
             <div>
